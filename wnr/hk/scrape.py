@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 import re
 
@@ -6,13 +7,15 @@ from google.appengine.ext import deferred, ndb
 
 import webapp2
 
-from ..models import PAGE_TYPE, ScrapeQueue
+from ..models import Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from ..util import get, ok_resp
 
 
 _module = 'hk'
 
-href = re.compile(r'href="([^"]+)"')
+href = re.compile(r'href="(.+?)"')
+itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
+ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
 
 
 def trigger(rq):
@@ -83,9 +86,54 @@ def scrape_category(html):
 
 
 def scrape_item(html):
-    raise NotImplementedError
+    props = dict(itemprop.findall(html))
+    og = dict(ogprop.findall(html))
+
+    logging.debug("itemprop: %r\nog:%r" % (props, og))
+
+    sku = props.get('sku')
+    assert sku, "Couldn't find SKU"
+
+    # not available
+    #cur = props['priceCurrency']
+    #cents = int(Decimal(props['price']) * 100)
+
+    g_params = re.search(r'google_tag_params = *{(.*?)}', html, re.DOTALL)
+    assert g_params
+    usd = re.search(r"value: '(.+?)'", g_params.group(1)).group(1)
+    cur = 'USD'
+    cents = int(Decimal(usd) * 100)
+    assert cur and cents > 0
+
+    image, title, typ, url = map(og.get, ('image', 'title', 'type', 'url'))
+    assert typ == "product", "Unexpected type %r" % typ
+    assert all((image, title, url))
+
+    key = ndb.Key(Store, _module, Item, sku)
+    item = key.get()
+    if item:
+        item.populate(url=url, title=title, image=image)
+        puts = [item]
+        price = Price.query(ancestor=item.key) \
+                     .order('-timestamp') \
+                     .get()
+        if (price.currency, price.cents) != (cur, cents):
+            puts.append(Price(parent=item.key, cents=cents, currency=cur))
+        ndb.put_multi(puts)
+        logging.debug("Updated %r" % [e.key for e in puts])
+    else:
+        item = Item(key=key, url=url, title=title, image=image)
+        price = Price(parent=item.key, cents=cents, currency=cur)
+        ndb.put_multi([item, price])
+        logging.debug("Added item %s / %r" % (item.key.id(), price.key))
+
+
+def proxy(rq):
+    rs = urlfetch.fetch(rq.GET['url'], deadline=60)
+    return webapp2.Response(rs.content)
 
 
 routes = [
+    get("/proxy.html", proxy),
     get("/trigger/", trigger),
 ]

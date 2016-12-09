@@ -1,5 +1,11 @@
 indexes:
 
+- kind: Price
+  ancestor: yes
+  properties:
+  - name: timestamp
+    direction: desc
+
 - kind: ScrapeQueue
   properties:
   - name: module
