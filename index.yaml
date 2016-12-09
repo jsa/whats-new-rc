@@ -1,0 +1,6 @@
+indexes:
+
+- kind: ScrapeQueue
+  properties:
+  - name: module
+  - name: queued

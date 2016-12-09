@@ -14,7 +14,9 @@ def get(url_template, handler):
 
 
 def ok_resp(rs):
-    if rs.status_code != 200:
+    if rs.status_code == 200:
+        return rs
+    else:
         raise urlfetch.DownloadError(
                   "%d from %s:\n\n%r\n\n%s"
                   % (rs.status_code,
