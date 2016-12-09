@@ -29,5 +29,10 @@ skip_files:
 - ^.*\.py[co]$
 
 handlers:
-- url: /
+
+- url: /_ah/queue/deferred
+  script: google.appengine.ext.deferred.deferred.application
+  login: admin
+
+- url: /.*
   script: main.app

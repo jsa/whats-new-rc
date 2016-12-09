@@ -1,0 +1,15 @@
+total_storage_limit: 1G
+
+queue:
+
+- name: default
+  rate: 500/s
+  max_concurrent_requests: 10
+  retry_parameters:
+    min_backoff_seconds: 5
+
+- name: scrape
+  rate: 500/s
+  max_concurrent_requests: 10
+  retry_parameters:
+    min_backoff_seconds: 10

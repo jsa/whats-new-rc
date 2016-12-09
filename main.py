@@ -1,28 +1,15 @@
-import os
-
-import jinja2
 import webapp2
+from webapp2_extras import routes
+
+from wnr.hk.scrape import routes as hk_routes
+from wnr.util import get, render
 
 
-PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
-
-
-env = jinja2.Environment(
-    #extensions=,
-    autoescape=True,
-    loader=jinja2.FileSystemLoader(
-               os.path.join(PROJECT_DIR, "templates")),
-    cache_size=-1,
-    auto_reload=False)
-
-
-class Root(webapp2.RequestHandler):
-    def get(self):
-        self.response.write(
-            env.get_template("hello.html")
-               .render(name="John Doe"))
+def root(rq):
+    return webapp2.Response(render("hello.html", {'name': "John Doe"}))
 
 
 app = webapp2.WSGIApplication([
-    (r"^/$", Root),
+    get("/", root),
+    routes.PathPrefixRoute("/hk", hk_routes),
 ], debug=False)
