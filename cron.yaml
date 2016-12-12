@@ -1,0 +1,6 @@
+cron:
+
+- description: Trigger HobbyKing crawl
+  url: /hk/trigger/
+  schedule: every mon,wed,fri 12:00
+  timezone: Europe/Helsinki

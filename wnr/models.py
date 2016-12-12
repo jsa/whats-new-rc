@@ -19,12 +19,21 @@ class Store(ndb.Model):
     pass
 
 
+class Category(ndb.Model):
+    added = ndb.DateTimeProperty(auto_now_add=True)
+    title = ndb.StringProperty(required=True)
+    url = ndb.StringProperty(required=True)
+    parent_cat = ndb.KeyProperty()
+
+
 class Item(ndb.Model):
     added = ndb.DateTimeProperty(auto_now_add=True)
     checked = ndb.DateTimeProperty(auto_now=True)
     url = ndb.StringProperty(required=True)
     title = ndb.StringProperty(required=True)
     image = ndb.StringProperty(required=True)
+    category = ndb.KeyProperty(kind=Category)
+    removed = ndb.DateTimeProperty()
 
 
 class Price(ndb.Model):

@@ -1,5 +1,10 @@
 indexes:
 
+- kind: Category
+  ancestor: yes
+  properties:
+  - name: title
+
 - kind: Price
   ancestor: yes
   properties:
