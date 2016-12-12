@@ -1,4 +1,4 @@
-from google.appengine.api import urlfetch
+from google.appengine.api import memcache, urlfetch
 from google.appengine.api.datastore import MAXIMUM_RESULTS
 
 import webapp2
@@ -49,3 +49,26 @@ def ok_resp(rs):
                      rs.final_url,
                      rs.headers,
                      rs.content))
+
+
+class _none(object):
+    pass
+
+
+def cacheize(timeout):
+    def outer(fn):
+        ns = "cacheize(%s.%s)" % (fn.__module__, fn.__name__)
+        def inner(*args, **kw):
+            key = repr((args, kw))
+            value = memcache.get(key, namespace=ns)
+            if value is None:
+                value = fn(*args, **kw)
+                if value is None:
+                    value = _none
+                memcache.set(key, value, timeout, namespace=ns)
+            if value is _none:
+                return None
+            else:
+                return value
+        return inner
+    return outer

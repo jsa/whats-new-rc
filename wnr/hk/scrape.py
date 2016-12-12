@@ -3,13 +3,14 @@ from decimal import Decimal
 import logging
 import re
 
-from google.appengine.api import search, urlfetch
+from google.appengine.api import urlfetch
 from google.appengine.ext import deferred, ndb
 
 from HTMLParser import HTMLParser
 import webapp2
 
 from ..models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
+from ..search import index_items
 from ..util import get, ok_resp
 
 
@@ -18,8 +19,6 @@ _module = 'hk'
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
 ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
-
-ITEMS_INDEX = 'items-20161212'
 
 
 def trigger(rq):
@@ -185,58 +184,6 @@ def scrape_item(html):
                    [item.key],
                    _queue='indexing',
                    _countdown=2)
-
-
-def index_items(item_keys):
-    # de-duplicate
-    item_keys = sorted(set(item_keys))
-
-    def cat_path(cat_key):
-        cat = cat_key.get()
-        if cat and cat.parent_cat:
-            return cat_path(cat.parent_cat) + [cat.key]
-        elif cat:
-            return [cat.key]
-        else:
-            return []
-
-    def item_fields(item):
-        fields = [search.AtomField('store', item.key.parent().id()),
-                  search.AtomField('sku', item.key.id()),
-                  search.TextField('title', item.title),
-                  search.AtomField('url', item.url),
-                  search.AtomField('image', item.image),
-                  search.DateField('added', item.added),
-                  search.DateField('checked', item.checked)]
-
-        if item.category:
-            id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
-            if id_path:
-                fields.append(search.TextField('categories', " ".join(id_path)))
-
-        return fields
-
-    adds, dels = [], []
-    for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
-        doc_id = "%s:%s" % (item_key.parent().id(), item_key.id())
-        if not item or item.removed:
-            dels.append(doc_id)
-        else:
-            adds.append(search.Document(
-                doc_id=doc_id,
-                fields=item_fields(item),
-                language='en',
-                # no global ordering
-                rank=(2**31) / 2))
-
-    logging.info("Indexing %d and removing %d documents"
-                 % (len(adds), len(dels)))
-
-    index = search.Index(ITEMS_INDEX)
-    if adds:
-        index.put(adds)
-    if dels:
-        index.delete(dels)
 
 
 def proxy(rq):
