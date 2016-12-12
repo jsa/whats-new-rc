@@ -1,5 +1,6 @@
 from google.appengine.api import memcache, urlfetch
 from google.appengine.api.datastore import MAXIMUM_RESULTS
+from google.appengine.ext import ndb
 
 import webapp2
 
@@ -15,25 +16,20 @@ def get(url_template, handler):
 
 
 def count_all(query):
-    # context = ndb.get_context()
-    # context.set_cache_policy(lambda key: False)
-    # context.set_memcache_policy(lambda key: False)
-    # context.clear_cache()
-
-    cursor, count = None, 0
+    start, count = None, 0
     while True:
-        e, _cursor, more = \
-            query.fetch_page(page_size=1,
-                             start_cursor=cursor,
-                             offset=MAXIMUM_RESULTS)
-
-        if e and _cursor and more:
-            # logging.info("got %r, cursor %s" % (e[-1].key, cursor))
-            count += MAXIMUM_RESULTS
-            cursor = _cursor
+        if start:
+            q = query.filter(ndb.Model.key > start)
         else:
-            count += query.count(limit=MAXIMUM_RESULTS,
-                                 start_cursor=cursor)
+            q = query
+        key = q.get(offset=MAXIMUM_RESULTS,
+                    keys_only=True)
+
+        if key:
+            count += MAXIMUM_RESULTS
+            start = key
+        else:
+            count += q.count(limit=MAXIMUM_RESULTS)
             break
 
     return count
