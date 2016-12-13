@@ -3,7 +3,9 @@ import email.utils
 import logging
 
 from google.appengine.api import mail
+from google.appengine.api.app_identity.app_identity import get_application_id
 from google.appengine.ext import ndb
+from google.appengine.runtime.apiproxy_errors import RequestTooLargeError
 
 import webapp2
 
@@ -43,8 +45,26 @@ class InfoEmailHandler(webapp2.RequestHandler):
                      # the subject field is undefined if no subject
                      subject=getattr(msg, 'subject', None),
                      raw=raw)
-        ent.put()
-        logging.info("Stored email to %r" % ent.key)
+        try:
+            ent.put()
+        except RequestTooLargeError as e:
+            logging.exception(e)
+            mail.send_mail(
+                sender="info@%s.appspotmail.com" % get_application_id(),
+                to=msg.sender,
+                subject="Auto-reply: Too large email",
+                body="Hello dear %s,\n\n"
+                     "An email you sent couldn't be received properly due to "
+                     "its excessive size (%.1fMB). Please retry with reduced "
+                     "attachments.\n\n"
+                     "Original email recipients: %s\n"
+                     "Subject: %s"
+                     % (msg.sender,
+                        len(raw) / 1024.**2,
+                        msg.to,
+                        getattr(msg, 'subject', "(empty)")))
+        else:
+            logging.info("Stored email to %r" % ent.key)
 
 
 class BounceHandler(webapp2.RequestHandler):
