@@ -27,10 +27,15 @@ libraries:
 
 skip_files:
 - ^\.
+- ^[^/]+\.html$
 - ^.*\.md$
 - ^.*\.py[co]$
+- ^.*/config\.json$
 
 handlers:
+- url: /a
+  static_dir: assets
+  expiration: "10s"
 
 - url: /_ah/bounce
   script: inmail.app
