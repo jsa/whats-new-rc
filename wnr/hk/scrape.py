@@ -14,7 +14,7 @@ from ..search import index_items
 from ..util import get, ok_resp
 
 
-_module = 'hk'
+_store = 'hk'
 
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
@@ -36,7 +36,7 @@ def queue_categories():
     logging.debug("Found %d categories" % len(urls))
     rpcs = [(url, ndb.Key(ScrapeQueue, url).get_async())
             for url in urls]
-    queue = [ScrapeQueue(id=url, module=_module, type=PAGE_TYPE.CATEGORY)
+    queue = [ScrapeQueue(id=url, store=_store, type=PAGE_TYPE.CATEGORY)
              for url, rpc in rpcs
              if not rpc.get_result()]
 
@@ -48,7 +48,7 @@ def queue_categories():
 
 
 def process_queue():
-    url = ScrapeQueue.query(ScrapeQueue.module == _module) \
+    url = ScrapeQueue.query(ScrapeQueue.store == _store) \
                      .order(ScrapeQueue.queued) \
                      .get()
     if not url:
@@ -85,7 +85,7 @@ def scrape_category(html):
     logging.info("Found %d items" % len(urls))
     rpcs = [(url, ndb.Key(ScrapeQueue, url).get_async())
             for url in urls]
-    queue = [ScrapeQueue(id=url, module=_module, type=PAGE_TYPE.ITEM)
+    queue = [ScrapeQueue(id=url, store=_store, type=PAGE_TYPE.ITEM)
              for url, rpc in rpcs
              if not rpc.get_result()]
     if queue:
@@ -96,12 +96,12 @@ def scrape_category(html):
     if npage:
         npage = npage.group(1)
         if not ndb.Key(ScrapeQueue, npage).get():
-            k = ScrapeQueue(id=npage, module=_module, type=PAGE_TYPE.CATEGORY).put()
+            k = ScrapeQueue(id=npage, store=_store, type=PAGE_TYPE.CATEGORY).put()
             logging.debug("Queued next page %r" % k)
 
 
 def save_cats(data):
-    store = ndb.Key(Store, _module)
+    store = ndb.Key(Store, _store)
     ckeys = []
     for url, title in data:
         cat = Category.query(Category.title == title,
@@ -162,7 +162,7 @@ def scrape_item(html):
               'category': cat_keys[-1],
               'removed': None}
 
-    key = ndb.Key(Store, _module, Item, sku)
+    key = ndb.Key(Store, _store, Item, sku)
     item = key.get()
     if item:
         item.populate(**fields)
@@ -192,6 +192,6 @@ def proxy(rq):
 
 
 routes = [
-    get("/proxy.html", proxy),
-    get("/trigger/", trigger),
+    get(r"/proxy\.html", proxy),
+    get(r"/scrape", trigger),
 ]

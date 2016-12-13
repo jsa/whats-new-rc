@@ -7,8 +7,8 @@ import webapp2
 from settings import env
 
 
-def render(template, data):
-    return env.get_template(template).render(**data)
+def render(template, data=None):
+    return env.get_template(template).render(**(data or {}))
 
 
 def get(url_template, handler):

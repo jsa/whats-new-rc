@@ -9,7 +9,7 @@ PAGE_TYPE = namedtuple('HKPageType',
 
 
 class ScrapeQueue(ndb.Model):
-    module = ndb.StringProperty(required=True)
+    store = ndb.StringProperty(required=True)
     queued = ndb.DateTimeProperty(auto_now_add=True)
     type = ndb.StringProperty(required=True, choices=PAGE_TYPE)
 
