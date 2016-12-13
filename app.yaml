@@ -15,7 +15,9 @@ builtins:
 - remote_api: on
 
 inbound_services:
-  - warmup
+- mail
+- mail_bounce
+- warmup
 
 libraries:
 - name: jinja2
@@ -29,6 +31,14 @@ skip_files:
 - ^.*\.py[co]$
 
 handlers:
+
+- url: /_ah/bounce
+  script: inmail.app
+  login: admin
+
+- url: /_ah/mail/.+
+  script: inmail.app
+  login: admin
 
 - url: /_ah/queue/deferred
   script: google.appengine.ext.deferred.deferred.application
