@@ -17,8 +17,17 @@ class Inmail(ndb.Model):
     raw = ndb.BlobProperty(required=True)
 
 
+class Bounce(ndb.Model):
+    timestamp = ndb.DateTimeProperty(auto_now_add=True)
+    recipients = ndb.StringProperty(repeated=True)
+    post_fields = ndb.TextProperty(repeated=True)
+
+
 class InfoEmailHandler(webapp2.RequestHandler):
+    """See InboundMailHandler"""
     def post(self):
+        for name, value in self.request.headers.iteritems():
+            logging.info("Header %r: %r" % (name, value))
         raw = self.request.body
         msg = mail.InboundEmailMessage(raw)
         logging.debug("Received %.1fkB from '%s'"
@@ -31,15 +40,28 @@ class InfoEmailHandler(webapp2.RequestHandler):
         ent = Inmail(mail_timestamp=ts,
                      sender=msg.sender,
                      recipients=to,
-                     subject=msg.subject,
+                     # the subject field is undefined if no subject
+                     subject=getattr(msg, 'subject', None),
                      raw=raw)
-        # let error (as too large)
         ent.put()
-        logging.info("Stored email as %r" % ent.key)
+        logging.info("Stored email to %r" % ent.key)
+
+
+class BounceHandler(webapp2.RequestHandler):
+    """See BounceNotificationHandler"""
+    def post(self):
+        form = self.request.POST
+        to = form['original-to']
+        to = sorted({s.strip() for s in to.split(",")})
+        flat_form = [x for f in form.iterkeys() for x in (f, form.get(f))]
+        log = Bounce(recipients=to,
+                     post_fields=flat_form)
+        log.put()
+        logging.info("Stored bounce to %r" % log.key)
 
 
 app = webapp2.WSGIApplication([
-    #(r"^/_ah/bounce$", BounceHandler),
+    (r"^/_ah/bounce$", BounceHandler),
     #(r"^'/_ah/mail/alert@.+$", AlertEmailHandler),
     (r"^/_ah/mail/info@.+$", InfoEmailHandler),
 ], debug=False)
