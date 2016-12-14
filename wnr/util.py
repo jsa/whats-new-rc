@@ -1,10 +1,14 @@
-from google.appengine.api import memcache, urlfetch
+from google.appengine.api import memcache as memcache_module, urlfetch
 from google.appengine.api.datastore import MAXIMUM_RESULTS
 from google.appengine.ext import ndb
 
 import webapp2
 
 from settings import env
+
+
+# "alias" just to get rid of pydev error...
+memcache = memcache_module.Client()
 
 
 def render(template, data=None):

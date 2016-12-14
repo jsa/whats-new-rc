@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 import logging
+import re
 import urllib
 
 from google.appengine.api import search as g_search, urlfetch
@@ -75,23 +76,39 @@ def redir(url):
 
 @cache(10)
 def search(rq):
-    page = rq.GET.get('p')
+    get_q = {k: v for k, v in rq.GET.iteritems() if v}
+
+    def asciidict(d):
+        return {k.encode('utf-8'): unicode(v).encode('utf-8')
+                for k, v in d.iteritems()}
+
+    def page_q(page):
+        if page < 2:
+            q = get_q
+        else:
+            q = dict(get_q, p=page)
+        if q:
+            return "%s?%s" % (rq.path, urllib.urlencode(asciidict(q)))
+        else:
+            return rq.path
+
+    page = get_q.pop("p", None)
     if page:
         try:
             page = int(page)
         except ValueError:
             return not_found("Invalid page '%s'" % (page,))
         if page < 2:
-            return redir("/")
+            return redir(page_q(page))
     else:
         page = 1
 
     page_size = 60
     count_accy = 1000
     index = g_search.Index(ITEMS_INDEX)
-    max_page = g_search.MAXIMUM_SEARCH_OFFSET / page_size + 1
-    if page > max_page:
-        return redir("?p=%d" % max_page)
+    page_limit = g_search.MAXIMUM_SEARCH_OFFSET / page_size + 1
+    if page > page_limit:
+        return redir(page_q(page_limit))
 
     # global sort is latest-ness
     # (note: rank would be referenced as "_rank")
@@ -103,24 +120,34 @@ def search(rq):
                limit=page_size,
                number_found_accuracy=count_accy,
                offset=page_size * (page - 1))
-    query = "added <= %d" % to_unix(datetime.utcnow())
+
+    search_q = get_q.get("q")
+    if search_q:
+        search_q = re.sub(r"[^a-z0-9]", " ", search_q.lower().strip()).strip()
+    if search_q:
+        query = "title:(%s)" % search_q
+    else:
+        query = "added <= %d" % to_unix(datetime.utcnow())
+
     rs = index.search(g_search.Query(query, opts), deadline=50)
+    max_page = rs.number_found / page_size
+    if rs.number_found % page_size:
+        max_page += 1
+    max_page = min(max_page, page_limit)
 
     def paging():
         start_page = max(page - 2, 1)
-        end_page = min(page + 7,
-                       rs.number_found / page_size,
-                       max_page)
+        end_page = min(page + 7, max_page)
         if end_page <= start_page:
             return
 
-        pages = [(p, "?p=%d" % p if p > 1 else "?", p == page)
+        pages = [(p, page_q(p), p == page)
                  for p in range(start_page, end_page + 1)]
 
         if pages[0][0] > 1:
-            pages.insert(0, (1, "?", False))
+            pages.insert(0, (1, page_q(1), False))
         if pages[-1][0] < max_page:
-            pages.append((max_page, "?p=%d" % max_page, False))
+            pages.append((max_page, page_q(max_page), False))
 
         paging = {'range': pages}
 
@@ -135,6 +162,7 @@ def search(rq):
         return paging
 
     ctx = {
+        'rq': rq,
         'items': map(ItemView, rs.results),
         'paging': paging(),
     }
