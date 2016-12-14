@@ -1,17 +1,66 @@
 from collections import namedtuple
 
+from google.appengine.api.datastore_errors import BadValueError
 from google.appengine.ext import ndb
 
+from .util import nub
 
-PAGE_TYPE = namedtuple('HKPageType',
+
+PAGE_TYPE = namedtuple('QueuePageType',
     ('CATEGORY', 'ITEM')) \
     ("category", "item")
 
 
 class ScrapeQueue(ndb.Model):
-    store = ndb.StringProperty(required=True)
-    queued = ndb.DateTimeProperty(auto_now_add=True)
-    type = ndb.StringProperty(required=True, choices=PAGE_TYPE)
+    modified = ndb.DateTimeProperty(auto_now=True)
+    category_queue = ndb.TextProperty(repeated=True)
+    item_queue = ndb.TextProperty(repeated=True)
+
+    @classmethod
+    @ndb.transactional
+    def queue(cls, store, categories=None, items=None):
+        if not (categories or items):
+            return
+        key = ndb.Key(Store, store, cls, 1)
+        queue = key.get()
+        if queue:
+            if categories:
+                queue.category_queue = nub(queue.category_queue + categories)
+            if items:
+                queue.item_queue = nub(queue.item_queue + items)
+        else:
+            queue = cls(key=key,
+                        category_queue=categories or [],
+                        item_queue=items or [])
+        queue.put()
+
+    @classmethod
+    @ndb.transactional
+    def peek(cls, store):
+        queue = ndb.Key(Store, store, cls, 1).get()
+        if not queue:
+            return None, None
+        # process item pages first
+        if queue.item_queue:
+            return queue.item_queue[0], PAGE_TYPE.ITEM
+        if queue.category_queue:
+            return queue.category_queue[0], PAGE_TYPE.CATEGORY
+        return None, None
+
+    @classmethod
+    @ndb.transactional
+    def pop(cls, store, url):
+        queue = ndb.Key(Store, store, cls, 1).get()
+        if not queue:
+            return
+        def ne(_url):
+            return _url != url
+        if url in queue.category_queue:
+            queue.category_queue = filter(ne, queue.category_queue)
+            queue.put()
+        if url in queue.item_queue:
+            queue.item_queue = filter(ne, queue.item_queue)
+            queue.put()
 
 
 class Store(ndb.Model):
@@ -36,7 +85,13 @@ class Item(ndb.Model):
     removed = ndb.DateTimeProperty()
 
 
+def check_currency(prop, cur):
+    if not isinstance(cur, basestring) \
+       and len(cur) == 3:
+        raise BadValueError("Invalid currency: %r" % (cur,))
+
+
 class Price(ndb.Model):
     timestamp = ndb.DateTimeProperty(auto_now_add=True)
     cents = ndb.IntegerProperty(required=True)
-    currency = ndb.StringProperty(required=True)
+    currency = ndb.StringProperty(required=True, validator=check_currency)

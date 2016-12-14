@@ -10,8 +10,3 @@ indexes:
   properties:
   - name: timestamp
     direction: desc
-
-- kind: ScrapeQueue
-  properties:
-  - name: store
-  - name: queued

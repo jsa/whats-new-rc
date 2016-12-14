@@ -87,3 +87,17 @@ def cacheize(timeout):
                 return value
         return inner
     return outer
+
+
+def nubby(key, itr):
+    l, seen = [], set()
+    for v in itr:
+        kv = key(v)
+        if kv not in seen:
+            seen.add(kv)
+            l.append(v)
+    return l
+
+
+def nub(itr):
+    return nubby(lambda x: x, itr)

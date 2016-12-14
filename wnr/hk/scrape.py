@@ -10,7 +10,7 @@ import webapp2
 
 from ..models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from ..search import index_items
-from ..util import cacheize, get, INVALIDATE_CACHE, ok_resp
+from ..util import cacheize, get, INVALIDATE_CACHE, nub, ok_resp
 
 
 _store = 'hk'
@@ -30,60 +30,42 @@ def queue_categories():
                                 deadline=60))
     nav = rs.content.split('id="nav"', 1)[1] \
                     .split("</nav>", 1)[0]
-    urls = href.findall(nav)
+    urls = nub(href.findall(nav))
     assert len(urls) > 100, "Found only %d category URLs" % len(urls)
     logging.debug("Found %d categories" % len(urls))
-    rpcs = [(url, ndb.Key(ScrapeQueue, url).get_async())
-            for url in urls]
-    queue = [ScrapeQueue(id=url, store=_store, type=PAGE_TYPE.CATEGORY)
-             for url, rpc in rpcs
-             if not rpc.get_result()]
-
-    if queue:
-        logging.debug("Queuing %d categories" % len(queue))
-        ndb.put_multi(queue)
-
+    ScrapeQueue.queue(_store, categories=urls)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
 
 
 def process_queue():
-    url = ScrapeQueue.query(ScrapeQueue.store == _store) \
-                     .order(ScrapeQueue.queued) \
-                     .get()
+    url, url_type = ScrapeQueue.peek(_store)
     if not url:
         return
 
-    logging.info("Scraping %r" % url.key)
-    rs = ok_resp(urlfetch.fetch(url.key.id(), follow_redirects=False, deadline=60))
-    if url.type == PAGE_TYPE.CATEGORY:
+    logging.info("Scraping %r" % url)
+    rs = ok_resp(urlfetch.fetch(url, follow_redirects=False, deadline=60))
+    if url_type == PAGE_TYPE.CATEGORY:
         scrape_category(rs.content)
     else:
-        assert url.type == PAGE_TYPE.ITEM
+        assert url_type == PAGE_TYPE.ITEM
         scrape_item(rs.content)
 
-    url.key.delete()
+    ScrapeQueue.pop(_store, url)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
 
 
 def scrape_category(html):
     items = html.split('id="list-item-')[1:]
-    urls = [href.search(item).group(1) for item in items]
-    logging.info("Found %d items" % len(urls))
-    rpcs = [(url, ndb.Key(ScrapeQueue, url).get_async())
-            for url in urls]
-    queue = [ScrapeQueue(id=url, store=_store, type=PAGE_TYPE.ITEM)
-             for url, rpc in rpcs
-             if not rpc.get_result()]
-    if queue:
-        logging.debug("Queuing %d items" % len(queue))
-        ndb.put_multi(queue)
+    item_urls = [href.search(item).group(1) for item in items]
+    logging.info("Found %d items" % len(item_urls))
 
+    cat_urls = []
     npage = re.search(r'href="([^"]+)" title="Next"', html)
     if npage:
-        npage = npage.group(1)
-        if not ndb.Key(ScrapeQueue, npage).get():
-            k = ScrapeQueue(id=npage, store=_store, type=PAGE_TYPE.CATEGORY).put()
-            logging.debug("Queued next page %r" % k)
+        cat_urls.append(npage.group(1))
+        logging.debug("Queuing next page %s" % (cat_urls,))
+
+    ScrapeQueue.queue(_store, categories=cat_urls, items=item_urls)
 
 
 @cacheize(10 * 60)
