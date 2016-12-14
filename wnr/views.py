@@ -111,8 +111,16 @@ def search(rq):
         end_page = min(page + 7,
                        rs.number_found / page_size,
                        max_page)
+        if end_page <= start_page:
+            return
+
         pages = [(p, "?p=%d" % p if p > 1 else "?", p == page)
                  for p in range(start_page, end_page + 1)]
+
+        if pages[0][0] > 1:
+            pages.insert(0, (1, "?", False))
+        if pages[-1][0] < max_page:
+            pages.append((max_page, "?p=%d" % max_page, False))
 
         paging = {'range': pages}
 
