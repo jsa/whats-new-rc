@@ -146,6 +146,19 @@ def scrape_item(html):
 
     fields['category'] = cat_keys[-1]
 
+    def prod_ids():
+        for prod_id in re.findall(r"product_value = (\d+);", html):
+            try:
+                yield int(prod_id)
+            except ValueError as e:
+                logging.warn(e, exc_info=True)
+
+    pids = set(prod_ids())
+    if len(pids) == 1:
+        fields['custom'] = {'hk-id': pids.pop()}
+    else:
+        logging.warn("Found %d product IDs: %r" % (len(pids), pids))
+
     key = ndb.Key(Store, _store, Item, sku)
     item = key.get()
     if item:

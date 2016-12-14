@@ -85,6 +85,7 @@ class Item(ndb.Model):
     title = ndb.StringProperty(required=True)
     image = ndb.StringProperty(required=True)
     category = ndb.KeyProperty(kind=Category)
+    custom = ndb.JsonProperty()
     removed = ndb.DateTimeProperty()
 
 
