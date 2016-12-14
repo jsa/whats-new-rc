@@ -40,11 +40,14 @@ class ScrapeQueue(ndb.Model):
         queue = ndb.Key(Store, store, cls, 1).get()
         if not queue:
             return None, None
-        # process item pages first
+        # As items are commonly in multiple categories, prefer processing
+        # categories first. But, this may lead to excessively long item
+        # queue, for which reason priorize the item queue if the item queue
+        # is sufficiently long.
+        if queue.category_queue and len(queue.item_queue) < 1000:
+            return queue.category_queue[0], PAGE_TYPE.CATEGORY
         if queue.item_queue:
             return queue.item_queue[0], PAGE_TYPE.ITEM
-        if queue.category_queue:
-            return queue.category_queue[0], PAGE_TYPE.CATEGORY
         return None, None
 
     @classmethod
