@@ -392,20 +392,15 @@
     "input-groups.less",
     "navs.less",
     "navbar.less",
-    "breadcrumbs.less",
-    "pager.less",
+    "pagination.less",
     "labels.less",
-    "badges.less",
     "jumbotron.less",
     "thumbnails.less",
-    "alerts.less",
-    "list-group.less",
     "wells.less",
-    "close.less",
     "component-animations.less"
   ],
   "js": [
     "collapse.js"
   ],
-  "customizerUrl": "http://getbootstrap.com/customize/?id=d8543158b7a248ad8d2c22e8495a4405"
+  "customizerUrl": "http://getbootstrap.com/customize/?id=230057e85598b8bc28471e6a42fb7f9c"
 }

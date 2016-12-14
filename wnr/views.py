@@ -24,7 +24,7 @@ def format_price(cur, amt):
         "GBP": u"£",
         "USD": "$",
     }.get(cur, cur)
-    return "%s %s" % (cur, amt)
+    return "%s %.2f" % (cur, amt)
 
 
 class ItemView(object):
@@ -69,19 +69,18 @@ class ItemView(object):
 
 def redir(url):
     rs = webapp2.Response(status=302)
-    rs.headers['Location'] = urllib.quote(url)
+    rs.headers['Location'] = url # urllib.quote(url)
     return rs
 
 
 @cache(10)
 def search(rq):
-    page = rq.GET.get('page')
+    page = rq.GET.get('p')
     if page:
-        page = 1
         try:
             page = int(page)
         except ValueError:
-            pass
+            return not_found("Invalid page '%s'" % (page,))
         if page < 2:
             return redir("/")
     else:
@@ -90,11 +89,16 @@ def search(rq):
     page_size = 60
     count_accy = 1000
     index = g_search.Index(ITEMS_INDEX)
+    max_page = g_search.MAXIMUM_SEARCH_OFFSET / page_size + 1
+    if page > max_page:
+        return redir("?p=%d" % max_page)
+
     # global sort is latest-ness
     # (note: rank would be referenced as "_rank")
     # sort = g_search.SortOptions(
     #            [g_search.SortExpression('added', g_search.SortExpression.DESCENDING)],
     #            limit=g_search.MAXIMUM_SORTED_DOCUMENTS)
+
     opts = g_search.QueryOptions(
                limit=page_size,
                number_found_accuracy=count_accy,
@@ -104,11 +108,13 @@ def search(rq):
 
     def paging():
         start_page = max(page - 2, 1)
-        end_page = min(page + 7, rs.number_found / page_size - 1)
+        end_page = min(page + 7,
+                       rs.number_found / page_size,
+                       max_page)
         pages = [(p, "?p=%d" % p if p > 1 else "?", p == page)
                  for p in range(start_page, end_page + 1)]
 
-        paging = {'nav': pages}
+        paging = {'range': pages}
 
         p_prev = filter(lambda p: p[0] == page - 1, pages)
         if p_prev:
@@ -122,7 +128,7 @@ def search(rq):
 
     ctx = {
         'items': map(ItemView, rs.results),
-        'paging': paging,
+        'paging': paging(),
     }
 
     if rs.number_found < count_accy:
