@@ -1,16 +1,26 @@
+from datetime import datetime
 import decimal
 import json
 import logging
+import time
 from urllib import urlencode
 
 from google.appengine.api import search, urlfetch
-from google.appengine.ext import ndb
+from google.appengine.ext import deferred, ndb
 
-from .models import Price
+from .models import Item, Price
 from .util import cacheize, ok_resp
 
 
 ITEMS_INDEX = 'items-20161212'
+
+
+def to_unix(dt):
+    return int(time.mktime(dt.timetuple()))
+
+
+def from_unix(seconds):
+    return datetime.utcfromtimestamp(seconds)
 
 
 @cacheize(60 * 60)
@@ -66,8 +76,9 @@ def index_items(item_keys):
                   search.TextField('title', item.title),
                   search.AtomField('url', item.url),
                   search.AtomField('image', item.image),
-                  search.DateField('added', item.added),
-                  search.DateField('checked', item.checked)]
+                  # DateField supports only date accuracy (ie. not second)
+                  search.NumberField('added', to_unix(item.added)),
+                  search.NumberField('checked', to_unix(item.checked))]
 
         if item.category:
             id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
@@ -95,8 +106,8 @@ def index_items(item_keys):
                 doc_id=doc_id,
                 fields=item_fields(item),
                 language='en',
-                # no global ordering
-                rank=(2**31) / 2))
+                # global sort by latest-ness
+                rank=to_unix(item.added)))
 
     index = search.Index(ITEMS_INDEX)
     if adds:
@@ -107,3 +118,23 @@ def index_items(item_keys):
     if dels:
         logging.debug("Deleting %d documents: %s" % (len(dels), dels))
         index.delete(dels)
+
+
+def reindex_all(cursor=None):
+    start = time.time()
+    while True:
+        keys, cursor, more = \
+            Item.query().fetch_page(page_size=50,
+                                    keys_only=True,
+                                    start_cursor=cursor)
+        if not keys:
+            break
+        index_items(keys)
+        if not (cursor and more):
+            break
+        if time.time() - start > 60:
+            deferred.defer(reindex_all,
+                           cursor=cursor,
+                           _queue='indexing')
+            return
+    logging.info("All items reindexed")
