@@ -15,6 +15,19 @@ def get(url_template, handler):
     return webapp2.Route(url_template, handler, methods=('GET',))
 
 
+def cache(expiry):
+    def outer(fn):
+        def inner(*args, **kw):
+            rs = fn(*args, **kw)
+            if isinstance(rs, webapp2.Response) \
+               and rs.status == "200 OK":
+                rs.headers['Cache-Control'] = \
+                    "public, max-age=%d" % expiry
+            return rs
+        return inner
+    return outer
+
+
 def count_all(query):
     start, count = None, 0
     while True:
@@ -51,11 +64,17 @@ class _none(object):
     pass
 
 
+INVALIDATE_CACHE = object()
+
+
 def cacheize(timeout):
     def outer(fn):
         ns = "cacheize(%s.%s)" % (fn.__module__, fn.__name__)
         def inner(*args, **kw):
             key = repr((args, kw))
+            if INVALIDATE_CACHE in args:
+                memcache.delete(key, namespace=ns)
+                return
             value = memcache.get(key, namespace=ns)
             if value is None:
                 value = fn(*args, **kw)

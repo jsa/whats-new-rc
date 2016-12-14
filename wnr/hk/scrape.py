@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 import logging
 import re
@@ -11,7 +10,7 @@ import webapp2
 
 from ..models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from ..search import index_items
-from ..util import get, ok_resp
+from ..util import cacheize, get, INVALIDATE_CACHE, ok_resp
 
 
 _store = 'hk'
@@ -55,25 +54,12 @@ def process_queue():
         return
 
     logging.info("Scraping %r" % url.key)
-    rs = urlfetch.fetch(url.key.id(), follow_redirects=False, deadline=60)
-    if rs.status_code != 200:
-        logging.warn("%d response for %s" % (rs.status_code, url.key.id()))
+    rs = ok_resp(urlfetch.fetch(url.key.id(), follow_redirects=False, deadline=60))
     if url.type == PAGE_TYPE.CATEGORY:
-        if rs.status_code == 200:
-            scrape_category(rs.content)
+        scrape_category(rs.content)
     else:
         assert url.type == PAGE_TYPE.ITEM
-        if rs.status_code == 200:
-            scrape_item(rs.content)
-        elif rs.status_code == 404:
-            items = Item.query(Item.url == url.key.id()).fetch()
-            now, mod = datetime.utcnow(), []
-            for item in items:
-                if not item.removed:
-                    item.removed = now
-                    mod.append(item)
-            if mod:
-                ndb.put_multi(mod)
+        scrape_item(rs.content)
 
     url.key.delete()
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
@@ -100,20 +86,32 @@ def scrape_category(html):
             logging.debug("Queued next page %r" % k)
 
 
+@cacheize(10 * 60)
+def category_by_title(title):
+    return Category.query(Category.title == title,
+                          ancestor=ndb.Key(Store, _store)) \
+                   .get()
+
+
 def save_cats(data):
     store = ndb.Key(Store, _store)
     ckeys = []
     for url, title in data:
-        cat = Category.query(Category.title == title,
-                             ancestor=store) \
-                      .get()
-        if cat:
-            cat.populate(title=title, url=url)
-        else:
+        cat = category_by_title(title)
+        if not cat:
             cat = Category(parent=store, title=title, url=url)
-        if ckeys:
-            cat.parent_cat = ckeys[-1]
-        cat.put()
+            cat.put()
+            category_by_title(INVALIDATE_CACHE)
+        else:
+            if ckeys:
+                parent = ckeys[-1]
+            else:
+                # don't remove earlier parent
+                parent = cat.parent_cat
+            if (cat.title, cat.url, cat.parent_cat) != (title, url, parent):
+                cat.populate(title=title, url=url, parent_cat=parent)
+                cat.put()
+                category_by_title(INVALIDATE_CACHE)
         ckeys.append(cat.key)
     return ckeys
 

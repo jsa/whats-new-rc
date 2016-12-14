@@ -13,5 +13,5 @@ indexes:
 
 - kind: ScrapeQueue
   properties:
-  - name: module
+  - name: store
   - name: queued
