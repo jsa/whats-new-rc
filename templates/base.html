@@ -7,9 +7,7 @@
 		<title>{% block title %}What's new RC{% endblock %}</title>
 		<link href="/a/css/bootstrap.min.css" rel="stylesheet">
 		<link href="/a/css/bootstrap-theme.min.css" rel="stylesheet">
-		<style type="text/css">
-		.search-result img { max-width: 300px; }
-		</style>
+		{% block css %}{% endblock %}
 	</head>
 	{# These paddings were left out of the generated css's for some reason... #}
 	<body style="padding-top: 50px; padding-bottom: 20px;">

@@ -8,6 +8,7 @@ from wnr.util import get
 
 app = webapp2.WSGIApplication([
     get(r"/", views.search),
+    get(r"/i/<store:\w+>/<sku:.+>", views.item_image),
     routes.PathPrefixRoute(r"/hk", hk_routes),
     #get(r"/<store:\w+>", views.store),
 ], debug=False)

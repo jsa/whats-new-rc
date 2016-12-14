@@ -14,6 +14,9 @@ from .util import cacheize, ok_resp
 
 ITEMS_INDEX = 'items-20161212'
 
+# 2016-12-14T10:27:40.492650
+_iso_format = "%Y-%m-%dT%H:%M:%S.%f"
+
 
 def to_unix(dt):
     return int(time.mktime(dt.timetuple()))
@@ -50,10 +53,18 @@ def to_us_cents(price):
     return int(us_cents.quantize(1, decimal.ROUND_HALF_UP))
 
 
-def format_price(price):
+def format_history_price(price):
     return "%s:%s%s" % (price.timestamp.isoformat(),
                         price.currency,
                         decimal.Decimal(price.cents) / 100)
+
+
+def parse_history_price(price):
+    timestamp, price = price.rsplit(":", 1)
+    cur, amt = price[:3], price[3:]
+    return (datetime.strptime(timestamp, _iso_format),
+            cur,
+            decimal.Decimal(amt))
 
 
 def index_items(item_keys):
@@ -90,7 +101,7 @@ def index_items(item_keys):
                       .fetch()
         if prices:
             fields.append(search.NumberField('us_cents', to_us_cents(prices[0])))
-            prices = map(format_price, prices)
+            prices = map(format_history_price, prices)
             fields.append(search.TextField('price_history', " ".join(prices)))
 
         return fields
@@ -120,7 +131,7 @@ def index_items(item_keys):
         index.delete(dels)
 
 
-def reindex_all(cursor=None):
+def reindex_items(cursor=None):
     start = time.time()
     while True:
         keys, cursor, more = \
@@ -133,7 +144,7 @@ def reindex_all(cursor=None):
         if not (cursor and more):
             break
         if time.time() - start > 60:
-            deferred.defer(reindex_all,
+            deferred.defer(reindex_items,
                            cursor=cursor,
                            _queue='indexing')
             return
