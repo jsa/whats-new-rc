@@ -43,12 +43,15 @@ def process_queue():
         return
 
     logging.info("Scraping %r" % url)
-    rs = ok_resp(urlfetch.fetch(url, follow_redirects=False, deadline=60))
-    if url_type == PAGE_TYPE.CATEGORY:
-        scrape_category(rs.content)
+    rs = urlfetch.fetch(url, follow_redirects=False, deadline=60)
+    if rs.status_code == 200:
+        if url_type == PAGE_TYPE.CATEGORY:
+            scrape_category(rs.content)
+        else:
+            assert url_type == PAGE_TYPE.ITEM
+            scrape_item(rs.content)
     else:
-        assert url_type == PAGE_TYPE.ITEM
-        scrape_item(rs.content)
+        logging.error("%d from %s, ignoring" % (rs.status_code, url))
 
     ScrapeQueue.pop(_store, url)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)

@@ -53,9 +53,8 @@ def ok_resp(rs):
         return rs
     else:
         raise urlfetch.DownloadError(
-                  "%d from %s:\n\n%r\n\n%s"
+                  "%d response:\n\n%r\n\n%s"
                   % (rs.status_code,
-                     rs.final_url,
                      rs.headers,
                      rs.content))
 
