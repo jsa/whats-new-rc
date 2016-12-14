@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 
 {% block css %}
+{{ super() }}
 <style type="text/css">
 .search-result img { max-width: 200px; }
 span.label-hk { background-color: #ff8f00; color: white; }
+.caption .sku { color: #a0a0a0; margin-left: 0.5em; }
 </style>
 {% endblock %}
 
@@ -24,6 +26,7 @@ span.label-hk { background-color: #ff8f00; color: white; }
 				<div class="caption">
 					<p>
 						<span class="label label-{{ item.store.id }}">{{ item.store.title }}</span>
+						<small class="sku">{{ item.sku }}</small>
 					</p>
 					<h3>
 						<a href="{{ item.url }}" target="_blank">{{ item.title }}</a>

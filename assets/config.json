@@ -401,8 +401,11 @@
     "alerts.less",
     "list-group.less",
     "wells.less",
-    "close.less"
+    "close.less",
+    "component-animations.less"
   ],
-  "js": [],
-  "customizerUrl": "http://getbootstrap.com/customize/?id=7f54729c2020bb2f2bf56f2a358ca5bf"
+  "js": [
+    "collapse.js"
+  ],
+  "customizerUrl": "http://getbootstrap.com/customize/?id=d8543158b7a248ad8d2c22e8495a4405"
 }

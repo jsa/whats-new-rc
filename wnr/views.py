@@ -33,16 +33,18 @@ class ItemView(object):
         store_id = doc.field('store').value
         self.store = {'id': store_id,
                       'title': "HobbyKing"}
-        self.photo_url = "/i/%s/%s" % (store_id, doc.field('sku').value)
+        self.photo_url = urllib.quote(
+            "/i/%s/%s" % (store_id, doc.field('sku').value))
 
         added = from_unix(doc.field('added').value)
         since = datetime.utcnow() - added
         if since < timedelta(hours=1):
             self.added = "%d minutes" % (since.seconds / 60)
-        if since < timedelta(days=1):
-            self.added = "%d hours" % (since.seconds / 3600)
-        if since < timedelta(days=2):
-            self.added = "1 days, %d hours" % (since.seconds / 3600)
+        elif since < timedelta(hours=23):
+            # display "upper limit"
+            self.added = "%d hours" % (since.seconds / 3600 + 1)
+        elif since < timedelta(days=1, hours=23):
+            self.added = "1 day, %d hour(s)" % (since.seconds / 3600 + 1)
         else:
             self.added = added.strftime("%b %d")
 

@@ -125,6 +125,11 @@ def scrape_item(html):
     assert typ == "product", "Unexpected type %r" % typ
     assert all((image, title, url))
 
+    fields = {'image': image,
+              'title': title,
+              'url': url,
+              'removed': None}
+
     cat_html = html.split('class="breadcrumbsPos"', 1)[1] \
                    .rsplit('class="breadcrumbsPos"', 1)[0]
     cat_el = re.compile(r'<a href="(.+?)".*?><.+?>(.+?)</')
@@ -136,11 +141,7 @@ def scrape_item(html):
                               for url, name in cats))
     cat_keys = save_cats(cats)
 
-    fields = {'url': url,
-              'title': title,
-              'image': image,
-              'category': cat_keys[-1],
-              'removed': None}
+    fields['category'] = cat_keys[-1]
 
     key = ndb.Key(Store, _store, Item, sku)
     item = key.get()

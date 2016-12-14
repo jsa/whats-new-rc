@@ -5,8 +5,8 @@
  */
 
 /*!
- * Generated using the Bootstrap Customizer (http://getbootstrap.com/customize/?id=7f54729c2020bb2f2bf56f2a358ca5bf)
- * Config saved to config.json and https://gist.github.com/7f54729c2020bb2f2bf56f2a358ca5bf
+ * Generated using the Bootstrap Customizer (http://getbootstrap.com/customize/?id=d8543158b7a248ad8d2c22e8495a4405)
+ * Config saved to config.json and https://gist.github.com/d8543158b7a248ad8d2c22e8495a4405
  */
 /*!
  * Bootstrap v3.3.7 (http://getbootstrap.com)
@@ -2538,6 +2538,41 @@ input[type="submit"].btn-block,
 input[type="reset"].btn-block,
 input[type="button"].btn-block {
   width: 100%;
+}
+.fade {
+  opacity: 0;
+  -webkit-transition: opacity 0.15s linear;
+  -o-transition: opacity 0.15s linear;
+  transition: opacity 0.15s linear;
+}
+.fade.in {
+  opacity: 1;
+}
+.collapse {
+  display: none;
+}
+.collapse.in {
+  display: block;
+}
+tr.collapse.in {
+  display: table-row;
+}
+tbody.collapse.in {
+  display: table-row-group;
+}
+.collapsing {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  -webkit-transition-property: height, visibility;
+  -o-transition-property: height, visibility;
+     transition-property: height, visibility;
+  -webkit-transition-duration: 0.35s;
+  -o-transition-duration: 0.35s;
+     transition-duration: 0.35s;
+  -webkit-transition-timing-function: ease;
+  -o-transition-timing-function: ease;
+     transition-timing-function: ease;
 }
 .btn-group,
 .btn-group-vertical {
