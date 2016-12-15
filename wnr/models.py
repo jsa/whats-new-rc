@@ -58,12 +58,18 @@ class ScrapeQueue(ndb.Model):
             return
         def ne(_url):
             return _url != url
+        mod = False
         if url in queue.category_queue:
             queue.category_queue = filter(ne, queue.category_queue)
-            queue.put()
+            mod = True
         if url in queue.item_queue:
             queue.item_queue = filter(ne, queue.item_queue)
-            queue.put()
+            mod = True
+        if mod:
+            if queue.category_queue or queue.item_queue:
+                queue.put()
+            else:
+                queue.delete()
 
 
 class Store(ndb.Model):

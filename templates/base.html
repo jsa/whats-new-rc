@@ -47,7 +47,7 @@
 					      action="/"
 					      method="get">
 						<div class="input-group">
-							<input type="text" class="form-control" name="q" value="{{ rq.GET.q }}">
+							<input type="text" class="form-control" name="q" value="{{ rq|GET('q') }}">
 							<span class="input-group-btn">
 								<button class="btn btn-default" type="submit">Search</button>
 							</span>

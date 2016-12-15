@@ -85,7 +85,7 @@ def cacheize(timeout):
                     value = _none
                 memcache.set(key, value, timeout, namespace=ns)
             if value is _none:
-                return None
+                return
             else:
                 return value
         return inner

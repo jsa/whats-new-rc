@@ -62,10 +62,10 @@ class ItemView(object):
         return self.doc.field(name).value
 
     def __str__(self):
-        return str(self.doc)
+        return "ItemView(%s)" % str(self.doc)
 
     def __repr__(self):
-        return repr(self.doc)
+        return "ItemView(%r)" % (self.doc,)
 
 
 def redir(url):

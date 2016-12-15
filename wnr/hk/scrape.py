@@ -2,7 +2,7 @@ from decimal import Decimal
 import logging
 import re
 
-from google.appengine.api import urlfetch
+from google.appengine.api import taskqueue, urlfetch
 from google.appengine.ext import deferred, ndb
 
 from HTMLParser import HTMLParser
@@ -50,8 +50,10 @@ def process_queue():
         else:
             assert url_type == PAGE_TYPE.ITEM
             scrape_item(rs.content)
+    elif rs.status_code in (301, 302, 404):
+        logging.error("%d for %s, skipping" % (rs.status_code, url))
     else:
-        logging.error("%d from %s, ignoring" % (rs.status_code, url))
+        raise taskqueue.TransientError("%d for %s" % (rs.status_code, url))
 
     ScrapeQueue.pop(_store, url)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)

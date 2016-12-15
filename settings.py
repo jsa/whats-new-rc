@@ -1,4 +1,5 @@
-import jinja2, os
+import jinja2, logging, os
+from google.appengine.api import app_identity
 
 PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -9,3 +10,10 @@ env = jinja2.Environment(
                os.path.join(PROJECT_DIR, "templates")),
     cache_size=-1,
     auto_reload=False)
+
+try:
+    env.globals['app_id'] = app_identity.get_application_id()
+except Exception as e:
+    logging.warn(e, exc_info=True)
+
+env.filters['GET'] = lambda rq, param: rq.GET.get(param, "") if rq else ""

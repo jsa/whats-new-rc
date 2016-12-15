@@ -72,14 +72,14 @@ def index_items(item_keys):
     item_keys = sorted(set(item_keys))
 
     def cat_path(cat_key):
-        cat = cat_key.get()
-        if cat:
-            if cat.parent_cat:
-                return cat_path(cat.parent_cat) + [cat.key]
+        path, cat = [], cat_key.get()
+        while cat:
+            path.insert(0, cat.key)
+            if cat.parent_cat and cat.parent_cat not in path:
+                cat = cat.parent_cat.get()
             else:
-                return [cat.key]
-        else:
-            return []
+                break
+        return path
 
     def item_fields(item):
         fields = [search.AtomField('store', item.key.parent().id()),
