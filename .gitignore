@@ -1,1 +1,2 @@
 *.py[co]
+templates/about.html
