@@ -92,7 +92,7 @@ def search(rq):
     def page_q(page):
         return qset("p", page if page >= 2 else None)
 
-    page = rq.GET.get("p")
+    page = rq.GET.pop("p", None)
     if page:
         try:
             page = int(page)
