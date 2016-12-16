@@ -15,14 +15,19 @@ from settings import env
 memcache = memcache_module.Client()
 
 
-def asciidict(d):
-    return {k.encode('utf-8'): unicode(v).encode('utf-8')
-            for k, v in d.iteritems()
-            if v}
+def render(template, data=None, *args, **kw):
+    content = env.get_template(template).render(**(data or {}))
+    return webapp2.Response(content, *args, **kw)
 
 
-def render(template, data=None):
-    return env.get_template(template).render(**(data or {}))
+def not_found(msg):
+    return webapp2.Response(msg, 404, content_type="text/plain")
+
+
+def redir(url):
+    rs = webapp2.Response(status=302)
+    rs.headers['Location'] = url # urllib.quote(url)
+    return rs
 
 
 def get(url_template, handler):
@@ -118,6 +123,12 @@ def nub(itr):
 
 def GET(param):
     return webapp2.get_request().GET.get(param, "")
+
+
+def asciidict(d):
+    return {k.encode('utf-8'): unicode(v).encode('utf-8')
+            for k, v in d.iteritems()
+            if v}
 
 
 def qset(param, value=None, as_dict=False):

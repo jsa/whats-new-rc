@@ -11,15 +11,11 @@ import webapp2
 
 from .models import Category, Item, Store
 from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
-from .util import cache, cacheize, qset, render
+from .util import cache, cacheize, not_found, qset, redir, render
 
 
 def about(rq):
-    return webapp2.Response(render("about.html"))
-
-
-def not_found(msg):
-    return webapp2.Response(msg, 404, content_type="text/plain")
+    return render("about.html")
 
 
 def format_price(cur, amt):
@@ -84,12 +80,6 @@ class ItemView(object):
 
     def __repr__(self):
         return "ItemView(%r)" % (self.doc,)
-
-
-def redir(url):
-    rs = webapp2.Response(status=302)
-    rs.headers['Location'] = url # urllib.quote(url)
-    return rs
 
 
 @cacheize(10 * 60)
@@ -201,7 +191,7 @@ def search(rq):
     else:
         ctx['total_count'] = "{:,d}+".format(count_accy)
 
-    return webapp2.Response(render("search.html", ctx))
+    return render("search.html", ctx)
 
 
 @cache(60 * 60)
