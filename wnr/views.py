@@ -12,12 +12,17 @@ import webapp2
 
 from .models import Category, Item, Store
 from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
-from .util import cache, cacheize, not_found, qset, redir, render
+from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
 @cache(10)
 def about(rq):
     return render("about.html")
+
+
+def cache_categories(rq):
+    get_categories(_refresh=True)
+    return webapp2.Response()
 
 
 def format_price(cur, amt):
@@ -70,9 +75,12 @@ class ItemView(object):
             logging.warn(e, exc_info=True)
             self.category_path = []
         else:
-            cats = map(int, cats.split(" "))
-            cats = [(cat_id, categories.get(int(cat_id))) for cat_id in cats]
-            self.category_path = filter(lambda (_, title): bool(title), cats)
+            cat_ids = map(int, cats.split(" "))
+            cat_infos = map(categories.get, cat_ids)
+            self.category_path = \
+                [(cat_id, cat_info[1])
+                 for cat_id, cat_info in zip(cat_ids, cat_infos)
+                 if cat_info]
 
     def __getattr__(self, name):
         return self.doc.field(name).value
@@ -84,9 +92,15 @@ class ItemView(object):
         return "ItemView(%r)" % (self.doc,)
 
 
-@cacheize(10 * 60)
-def get_categories():
-    return {c.key.id(): c.title for c in Category.query()}
+@cacheize(15 * 60)
+def get_categories(store_id=None):
+    if store_id:
+        return {c.key.id(): c.title
+                for c in Category.query(Category.store == store_id)
+                                 .iter(batch_size=50)}
+    else:
+        return {c.key.id(): (c.store, c.title)
+                for c in Category.query().iter(batch_size=50)}
 
 
 @cache(30)
@@ -132,12 +146,14 @@ def search(rq):
             cats = map(int, cats)
         except ValueError:
             return not_found("Invalid categories %s" % (cats,))
-        cat_titles = get_categories()
-        cat_names = [cat_titles.get(cat_id) for cat_id in cats]
+        cats = nub(cats)
+        cat_names = map(get_categories().get, cats)
         if not all(cat_names):
             return not_found("Invalid categories %s" % (cats,))
-        cats = ['"%d"' % cat_id for cat_id in sorted(set(cats))]
-        expr.append("categories:(%s)" % " OR ".join(cats))
+        cats = zip(cats, cat_names)
+        cat_ids = ['"%d"' % c[0] for c in cats]
+        expr.append("categories:(%s)" % " OR ".join(cat_ids))
+        cat_names = [c[1][1] for c in cats]
         filters.append((" OR ".join(cat_names), qset("c")))
 
     search_q = rq.GET.get("q")

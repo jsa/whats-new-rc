@@ -1,8 +1,8 @@
 indexes:
 
 - kind: Category
-  ancestor: yes
   properties:
+  - name: store
   - name: title
 
 - kind: Price

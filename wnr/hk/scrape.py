@@ -10,7 +10,7 @@ import webapp2
 
 from ..models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from ..search import index_items
-from ..util import cacheize, get, INVALIDATE_CACHE, nub, ok_resp
+from ..util import get, nub, ok_resp
 
 
 _store = 'hk'
@@ -79,32 +79,26 @@ def scrape_category(html):
     ScrapeQueue.queue(_store, categories=cat_urls, items=item_urls)
 
 
-@cacheize(10 * 60)
-def category_by_title(title):
-    return Category.query(Category.title == title,
-                          ancestor=ndb.Key(Store, _store)) \
-                   .get()
-
-
 def save_cats(data):
-    store = ndb.Key(Store, _store)
     ckeys = []
     for url, title in data:
-        cat = category_by_title(title)
-        if not cat:
-            cat = Category(parent=store, title=title, url=url)
-            cat.put()
-            category_by_title(INVALIDATE_CACHE)
-        else:
-            if ckeys:
-                parent = ckeys[-1]
-            else:
+        cat = Category.query(Category.store == _store,
+                             Category.title == title) \
+                      .get()
+        parent = ckeys[-1] if ckeys else None
+        if cat:
+            if not parent:
                 # don't remove earlier parent
                 parent = cat.parent_cat
-            if (cat.title, cat.url, cat.parent_cat) != (title, url, parent):
-                cat.populate(title=title, url=url, parent_cat=parent)
+            if (cat.url, cat.parent_cat) != (url, parent):
+                cat.populate(url=url, parent_cat=parent)
                 cat.put()
-                category_by_title(INVALIDATE_CACHE)
+        else:
+            cat = Category(store=_store,
+                           title=title,
+                           url=url,
+                           parent_cat=parent)
+            cat.put()
         ckeys.append(cat.key)
     return ckeys
 

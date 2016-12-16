@@ -82,18 +82,35 @@ class _none(object):
     pass
 
 
-INVALIDATE_CACHE = object()
-
-
 def cacheize(timeout):
     def outer(fn):
         ns = "cacheize(%s.%s)" % (fn.__module__, fn.__name__)
         def inner(*args, **kw):
+            invalidate = refresh = False
+
+            try:
+                del kw['_invalidate']
+                invalidate = True
+            except KeyError:
+                pass
+
+            try:
+                del kw['_refresh']
+                refresh = True
+            except KeyError:
+                pass
+
             key = repr((args, kw))
-            if INVALIDATE_CACHE in args:
+
+            if invalidate:
                 memcache.delete(key, namespace=ns)
                 return
-            value = memcache.get(key, namespace=ns)
+
+            if refresh:
+                value = None
+            else:
+                value = memcache.get(key, namespace=ns)
+
             if value is None:
                 value = fn(*args, **kw)
                 if value is None:

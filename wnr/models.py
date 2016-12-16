@@ -11,6 +11,11 @@ PAGE_TYPE = namedtuple('QueuePageType',
     ("category", "item")
 
 
+class Store(ndb.Model):
+    """Just for key hierarchy."""
+    pass
+
+
 class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
@@ -72,12 +77,8 @@ class ScrapeQueue(ndb.Model):
                 queue.delete()
 
 
-class Store(ndb.Model):
-    """Just for key hierarchy."""
-    pass
-
-
 class Category(ndb.Model):
+    store = ndb.StringProperty(required=True)
     added = ndb.DateTimeProperty(auto_now_add=True)
     title = ndb.StringProperty(required=True)
     url = ndb.StringProperty(required=True)
