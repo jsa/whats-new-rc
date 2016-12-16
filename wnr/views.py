@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import logging
 import re
+import time
 import urllib
 
 from google.appengine.api import search as g_search, urlfetch
@@ -149,7 +150,10 @@ def search(rq):
     if not expr:
         expr = ["added <= %d" % to_unix(datetime.utcnow())]
 
-    rs = index.search(g_search.Query(" ".join(expr), opts), deadline=50)
+    start = time.time()
+    rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
+    ms = (time.time() - start) * 1000
+    logging.debug("Search latency {:,d}ms".format(int(ms)))
     max_page = rs.number_found / page_size
     if rs.number_found % page_size:
         max_page += 1
