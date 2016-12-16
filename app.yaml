@@ -33,9 +33,14 @@ skip_files:
 - ^.*/config\.json$
 
 handlers:
+- url: /favicon.ico
+  static_files: assets/favicon.ico
+  upload: assets/favicon.ico
+  expiration: "60s"
+
 - url: /a
   static_dir: assets
-  expiration: "10s"
+  expiration: "60s"
 
 - url: /_ah/bounce
   script: inmail.app
