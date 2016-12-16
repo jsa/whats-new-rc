@@ -15,5 +15,4 @@ try:
     env.globals['app_id'] = app_identity.get_application_id()
 except Exception as e:
     logging.warn(e, exc_info=True)
-
-env.filters['GET'] = lambda rq, param: rq.GET.get(param, "") if rq else ""
+    env.globals['app_id'] = None

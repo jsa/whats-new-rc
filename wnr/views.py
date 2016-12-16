@@ -9,9 +9,9 @@ from google.appengine.ext import ndb
 
 import webapp2
 
-from .models import Item, Store
+from .models import Category, Item, Store
 from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
-from .util import cache, render
+from .util import cache, cacheize, qset, render
 
 
 def not_found(msg):
@@ -29,7 +29,11 @@ def format_price(cur, amt):
 
 
 class ItemView(object):
-    def __init__(self, doc):
+    @classmethod
+    def make_views(cls, docs, categories):
+        return [cls(d, categories) for d in docs]
+
+    def __init__(self, doc, categories):
         self.doc = doc
         store_id = doc.field('store').value
         self.store = {'id': store_id,
@@ -58,6 +62,16 @@ class ItemView(object):
             ts, cur, amt = parse_history_price(prices.split(" ")[0])
             self.price = format_price(cur, amt)
 
+        try:
+            cats = doc.field('categories').value
+        except ValueError as e:
+            logging.warn(e, exc_info=True)
+            self.category_path = []
+        else:
+            cats = map(int, cats.split(" "))
+            cats = [(cat_id, categories.get(int(cat_id))) for cat_id in cats]
+            self.category_path = filter(lambda (_, title): bool(title), cats)
+
     def __getattr__(self, name):
         return self.doc.field(name).value
 
@@ -74,25 +88,17 @@ def redir(url):
     return rs
 
 
+@cacheize(10 * 60)
+def get_categories():
+    return {c.key.id(): c.title for c in Category.query()}
+
+
 @cache(10)
 def search(rq):
-    get_q = {k: v for k, v in rq.GET.iteritems() if v}
-
-    def asciidict(d):
-        return {k.encode('utf-8'): unicode(v).encode('utf-8')
-                for k, v in d.iteritems()}
-
     def page_q(page):
-        if page < 2:
-            q = get_q
-        else:
-            q = dict(get_q, p=page)
-        if q:
-            return "%s?%s" % (rq.path, urllib.urlencode(asciidict(q)))
-        else:
-            return rq.path
+        return qset("p", page if page >= 2 else None)
 
-    page = get_q.pop("p", None)
+    page = rq.GET.get("p")
     if page:
         try:
             page = int(page)
@@ -121,15 +127,27 @@ def search(rq):
                number_found_accuracy=count_accy,
                offset=page_size * (page - 1))
 
-    search_q = get_q.get("q")
+    search_q = rq.GET.get("q")
+    expr = []
     if search_q:
         search_q = re.sub(r"[^a-z0-9]", " ", search_q.lower().strip()).strip()
     if search_q:
-        query = "title:(%s)" % search_q
-    else:
-        query = "added <= %d" % to_unix(datetime.utcnow())
+        expr.append("title:(%s)" % search_q)
 
-    rs = index.search(g_search.Query(query, opts), deadline=50)
+    cats = rq.GET.get("c")
+    if cats:
+        cats = cats.split(",")
+        try:
+            cats = map(int, cats)
+        except ValueError:
+            return not_found("Invalid categories %s" % (cats,))
+        cats = ['"%d"' % cat_id for cat_id in sorted(set(cats))]
+        expr.append("categories:(%s)" % " OR ".join(cats))
+
+    if not expr:
+        expr = ["_rank <= %d" % to_unix(datetime.utcnow())]
+
+    rs = index.search(g_search.Query(" ".join(expr), opts), deadline=50)
     max_page = rs.number_found / page_size
     if rs.number_found % page_size:
         max_page += 1
@@ -162,8 +180,7 @@ def search(rq):
         return paging
 
     ctx = {
-        'rq': rq,
-        'items': map(ItemView, rs.results),
+        'items': ItemView.make_views(rs.results, get_categories()),
         'paging': paging(),
     }
 

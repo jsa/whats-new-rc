@@ -44,10 +44,11 @@
 						#}
 					</ul>
 					<form class="navbar-form navbar-right"
-					      action="/"
+					      action="{{ qset('q') }}"
 					      method="get">
+						{{ qset('q', as_dict=True)|as_form }}
 						<div class="input-group">
-							<input type="text" class="form-control" name="q" value="{{ rq|GET('q') }}">
+							<input type="text" class="form-control" name="q" value="{{ GET('q') }}">
 							<span class="input-group-btn">
 								<button class="btn btn-default" type="submit">Search</button>
 							</span>

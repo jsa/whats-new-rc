@@ -3,9 +3,21 @@
 {% block css %}
 {{ super() }}
 <style type="text/css">
-.search-result img { max-width: 200px; }
-span.label-hk { background-color: #ff8f00; color: white; }
-.caption .sku { color: #a0a0a0; margin-left: 0.5em; }
+.search-result img {
+	max-width: 200px;
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
+
+span.label-hk {
+	background-color: #ff8f00;
+	color: white;
+}
+
+.caption .sku {
+	color: #a0a0a0;
+	margin-left: 0.5em;
+}
 </style>
 {% endblock %}
 
@@ -32,6 +44,12 @@ span.label-hk { background-color: #ff8f00; color: white; }
 						<a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
 					</h4>
 					<h4>{{ item.price }}</h4>
+					<p>
+						{% for id, title in item.category_path %}
+						{% if not loop.first %}<br />&raquo;{% endif %}
+						<a href="{{ qset('c', id) }}">{{ title }}</a>
+						{% endfor %}
+					</p>
 					<p>{{ item.added }}</p>
 				</div>
 			</div>

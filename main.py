@@ -1,9 +1,16 @@
 import webapp2
 from webapp2_extras import routes
 
+from settings import env
 from wnr import views
 from wnr.hk.scrape import routes as hk_routes
-from wnr.util import get, render
+from wnr.util import as_form, GET, get, qset, render
+
+
+env.globals['GET'] = GET
+env.globals['qset'] = qset
+
+env.filters['as_form'] = as_form
 
 
 def about(rq):

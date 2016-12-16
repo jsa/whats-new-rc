@@ -1,7 +1,11 @@
+import urllib
+
 from google.appengine.api import memcache as memcache_module, urlfetch
 from google.appengine.api.datastore import MAXIMUM_RESULTS
 from google.appengine.ext import ndb
 
+from jinja2._markupsafe._native import escape
+from jinja2.filters import do_mark_safe
 import webapp2
 
 from settings import env
@@ -9,6 +13,12 @@ from settings import env
 
 # "alias" just to get rid of pydev error...
 memcache = memcache_module.Client()
+
+
+def asciidict(d):
+    return {k.encode('utf-8'): unicode(v).encode('utf-8')
+            for k, v in d.iteritems()
+            if v}
 
 
 def render(template, data=None):
@@ -104,3 +114,32 @@ def nubby(key, itr):
 
 def nub(itr):
     return nubby(lambda x: x, itr)
+
+
+def GET(param):
+    return webapp2.get_request().GET.get(param, "")
+
+
+def qset(param, value=None, as_dict=False):
+    rq = webapp2.get_request()
+    if rq.GET:
+        q = rq.GET.copy()
+    else:
+        q = {}
+    if value:
+        q[param] = value
+    else:
+        q.pop(param, None)
+    if as_dict:
+        return q
+    if q:
+        return "%s?%s" % (rq.path, urllib.urlencode(asciidict(q)))
+    else:
+        return rq.path
+
+
+def as_form(q):
+    html = "".join('<input type="hidden" name="%s" value="%s">'
+                   % (escape(param), escape(value))
+                   for param, value in q.iteritems())
+    return do_mark_safe(html)
