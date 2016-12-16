@@ -1,0 +1,27 @@
+<nav aria-label="Page navigation">
+	<ul class="pagination">
+		{% if paging.prev %}
+		<li>
+			<a href="{{ paging.prev.1 }}" aria-label="Previous">
+				<span aria-hidden="true">&laquo;</span>
+			</a>
+		</li>
+		{% endif %}
+		{% for n, q, a in paging.range %}
+		{% if a %}
+		<li class="active">
+			<a href="{{ q }}">{{ n }} <span class="sr-only">(current)</span></a>
+		</li>
+		{% else %}
+		<li><a href="{{ q }}">{{ n }}</a></li>
+		{% endif %}
+		{% endfor %}
+		{% if paging.next %}
+		<li>
+			<a href="{{ paging.next.1 }}" aria-label="Next">
+				<span aria-hidden="true">&raquo;</span>
+			</a>
+		</li>
+		{% endif %}
+	</ul>
+</nav>
