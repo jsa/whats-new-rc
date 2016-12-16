@@ -127,12 +127,7 @@ def search(rq):
                number_found_accuracy=count_accy,
                offset=page_size * (page - 1))
 
-    search_q = rq.GET.get("q")
-    expr = []
-    if search_q:
-        search_q = re.sub(r"[^a-z0-9]", " ", search_q.lower().strip()).strip()
-    if search_q:
-        expr.append("title:(%s)" % search_q)
+    expr, filters = [], []
 
     cats = rq.GET.get("c")
     if cats:
@@ -141,11 +136,23 @@ def search(rq):
             cats = map(int, cats)
         except ValueError:
             return not_found("Invalid categories %s" % (cats,))
+        cat_titles = get_categories()
+        cat_names = [cat_titles.get(cat_id) for cat_id in cats]
+        if not all(cat_names):
+            return not_found("Invalid categories %s" % (cats,))
         cats = ['"%d"' % cat_id for cat_id in sorted(set(cats))]
         expr.append("categories:(%s)" % " OR ".join(cats))
+        filters.append((" OR ".join(cat_names), qset("c")))
+
+    search_q = rq.GET.get("q")
+    if search_q:
+        search_q = re.sub(r"[^a-z0-9]", " ", search_q.lower().strip()).strip()
+    if search_q:
+        expr.append("title:(%s)" % search_q)
+        filters.append(('"%s"' % search_q, qset("q")))
 
     if not expr:
-        expr = ["_rank <= %d" % to_unix(datetime.utcnow())]
+        expr = ["added <= %d" % to_unix(datetime.utcnow())]
 
     rs = index.search(g_search.Query(" ".join(expr), opts), deadline=50)
     max_page = rs.number_found / page_size
@@ -156,8 +163,8 @@ def search(rq):
     def paging():
         start_page = max(page - 2, 1)
         end_page = min(page + 7, max_page)
-        if end_page <= start_page:
-            return
+        # if end_page <= start_page:
+        #     return
 
         pages = [(p, page_q(p), p == page)
                  for p in range(start_page, end_page + 1)]
@@ -182,6 +189,7 @@ def search(rq):
     ctx = {
         'items': ItemView.make_views(rs.results, get_categories()),
         'paging': paging(),
+        'filters': filters,
     }
 
     if rs.number_found < count_accy:

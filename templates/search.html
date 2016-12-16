@@ -28,8 +28,29 @@ span.label-hk {
 		<p>See latest products from various RC web shops.</p>
 	</div>
 </div>
+
 <div class="container">
-	<p>{{ total_count }} results</p>
+	{% if filters %}
+	<div class="row">
+		<div class="col-xs-12">
+			{% for filter, clear in filters %}
+			<a href="{{ clear }}" class="btn btn-success">
+				<span class="close">&times;</span> {{ filter }}
+			</a>
+			{% endfor %}
+		</div>
+	</div>
+	{% endif %}
+
+	<div class="row">
+		<div class="col-sm-3">
+			<h4><span class="label label-default">{{ total_count }} results</span></h4>
+		</div>
+		<div class="col-sm-9 text-right">
+			{% include 'search-paging.html' %}
+		</div>
+	</div>
+
 	<div class="row">
 		{% for item in items %}
 		<div class="col-sm-6 col-md-3 search-result">
@@ -58,38 +79,14 @@ span.label-hk {
 		</div><div class="row">
 		{% endif %}
 		{% else %}
-		<p>No items.</p>
+		<div class="col-xs-12">
+			<h4><span class="label label-default">No items</span></h4>
+		</div>
 		{% endfor %}
 	</div>
 
-	{% if paging %}
-	<nav aria-label="Page navigation">
-		<ul class="pagination">
-			{% if paging.prev %}
-			<li>
-				<a href="{{ paging.prev.1 }}" aria-label="Previous">
-					<span aria-hidden="true">&laquo;</span>
-				</a>
-			</li>
-			{% endif %}
-			{% for n, q, a in paging.range %}
-			{% if a %}
-			<li class="active">
-				<a href="{{ q }}">{{ n }} <span class="sr-only">(current)</span></a>
-			</li>
-			{% else %}
-			<li><a href="{{ q }}">{{ n }}</a></li>
-			{% endif %}
-			{% endfor %}
-			{% if paging.next %}
-			<li>
-				<a href="{{ paging.next.1 }}" aria-label="Next">
-					<span aria-hidden="true">&raquo;</span>
-				</a>
-			</li>
-			{% endif %}
-		</ul>
-	</nav>
-	{% endif %}
+	<div class="col-md-12 text-center">
+		{% include 'search-paging.html' %}
+	</div>
 </div>
 {% endblock %}
