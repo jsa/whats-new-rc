@@ -14,6 +14,7 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, qset, redir, render
 
 
+@cache(10)
 def about(rq):
     return render("about.html")
 
@@ -87,7 +88,7 @@ def get_categories():
     return {c.key.id(): c.title for c in Category.query()}
 
 
-@cache(10)
+@cache(30)
 def search(rq):
     def page_q(page):
         return qset("p", page if page >= 2 else None)
