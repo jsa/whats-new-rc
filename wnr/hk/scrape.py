@@ -28,10 +28,16 @@ def trigger(rq):
 def queue_categories():
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
+
+    m = re.search(r'class="mb_new_pro"><a href="(.+?)"', rs.content)
+    assert m, "New items URL not found"
+    urls = [m.group(1)]
+
     nav = rs.content.split('id="nav"', 1)[1] \
                     .split("</nav>", 1)[0]
-    urls = nub(href.findall(nav))
+    urls += nub(href.findall(nav))
     assert len(urls) > 100, "Found only %d category URLs" % len(urls)
+
     logging.debug("Found %d categories" % len(urls))
     ScrapeQueue.queue(_store, categories=urls)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)

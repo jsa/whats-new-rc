@@ -49,5 +49,9 @@ handlers:
   script: google.appengine.ext.deferred.deferred.application
   login: admin
 
+- url: /_.*
+  script: main.app
+  login: admin
+
 - url: /.*
   script: main.app

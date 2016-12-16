@@ -14,6 +14,10 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, qset, render
 
 
+def about(rq):
+    return webapp2.Response(render("about.html"))
+
+
 def not_found(msg):
     return webapp2.Response(msg, 404, content_type="text/plain")
 

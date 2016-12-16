@@ -1,6 +1,6 @@
 cron:
 
 - description: Trigger HobbyKing crawl
-  url: /hk/scrape
+  url: /_hk/scrape
   schedule: every mon,wed,fri 12:00
   timezone: Europe/Helsinki
