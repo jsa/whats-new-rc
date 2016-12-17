@@ -21,7 +21,7 @@ def about(rq):
 
 
 def cache_categories(rq):
-    get_categories(_refresh=True)
+    read_categories(_refresh=True)
     return webapp2.Response()
 
 
@@ -93,7 +93,7 @@ class ItemView(object):
 
 
 @cacheize(15 * 60)
-def get_categories(store_id=None):
+def read_categories(store_id=None):
     if store_id:
         return {c.key.id(): c.title
                 for c in Category.query(Category.store == store_id)
@@ -101,6 +101,32 @@ def get_categories(store_id=None):
     else:
         return {c.key.id(): (c.store, c.title)
                 for c in Category.query().iter(batch_size=50)}
+
+
+category_cache = None
+
+def get_categories():
+    global category_cache
+    # take a local reference to the tuple
+    _cache = category_cache
+    if _cache and time.time() - _cache[1] < 5 * 60:
+        return _cache[0]
+    else:
+        category_cache = (read_categories(), time.time())
+        return category_cache[0]
+
+
+class log_latency(object):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __enter__(self):
+        self.start = time.time()
+
+    def __exit__(self, *args):
+        ms = (time.time() - self.start) * 1000
+        logging.debug(self.msg.format(int(ms)))
+        del self.start
 
 
 @cache(30)
@@ -166,10 +192,9 @@ def search(rq):
     if not expr:
         expr = ["added <= %d" % to_unix(datetime.utcnow())]
 
-    start = time.time()
-    rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
-    ms = (time.time() - start) * 1000
-    logging.debug("Search latency {:,d}ms".format(int(ms)))
+    with log_latency("Search latency {:,d}ms"):
+        rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
+
     max_page = rs.number_found / page_size
     if rs.number_found % page_size:
         max_page += 1
@@ -212,7 +237,8 @@ def search(rq):
     else:
         ctx['total_count'] = "{:,d}+".format(count_accy)
 
-    return render("search.html", ctx)
+    with log_latency("Render latency {:,d}ms"):
+        return render("search.html", ctx)
 
 
 @cache(60 * 60)

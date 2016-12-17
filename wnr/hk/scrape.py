@@ -116,15 +116,18 @@ def scrape_item(html):
 
     cur = props.get('priceCurrency')
     if cur:
-        cents = int(Decimal(props['price']) * 100)
+        price = cur, int(Decimal(props['price']) * 100)
     else:
         g_params = re.search(r'google_tag_params = *{(.*?)}', html, re.DOTALL)
         assert g_params
         usd = re.search(r"value: '(.+?)'", g_params.group(1)).group(1)
-        cur = 'USD'
-        cents = int(Decimal(usd) * 100)
+        logging.debug("google_tag_params: %s, usd: %s"
+                      % (g_params.group(1), usd))
+        price = 'USD', int(Decimal(usd) * 100)
 
-    assert cur and cents > 0
+    if not price[1] > 0:
+        logging.warn("Failed to find an appropriate price: %r" % (price,))
+        price = None
 
     image, title, typ, url = map(og.get, ('image', 'title', 'type', 'url'))
     assert typ == "product", "Unexpected type %r" % typ
@@ -166,18 +169,25 @@ def scrape_item(html):
     if item:
         item.populate(**fields)
         puts = [item]
-        price = Price.query(ancestor=item.key) \
+        if price:
+            p = Price.query(ancestor=item.key) \
                      .order(-Price.timestamp) \
                      .get()
-        if (price.currency, price.cents) != (cur, cents):
-            puts.append(Price(parent=item.key, cents=cents, currency=cur))
-        ndb.put_multi(puts)
-        logging.debug("Updated %r" % [e.key for e in puts])
+            if (p.currency, p.cents) != price:
+                puts.append(Price(parent=item.key,
+                                  currency=price[0],
+                                  cents=price[1]))
+            keys = ndb.put_multi(puts)
+            logging.debug("Updated %r" % (keys,))
     else:
         item = Item(key=key, **fields)
-        price = Price(parent=item.key, cents=cents, currency=cur)
-        ndb.put_multi([item, price])
-        logging.debug("Added item %s / %r" % (item.key.id(), price.key))
+        puts = [item]
+        if price:
+            puts.append(Price(parent=item.key,
+                              currency=price[0],
+                              cents=price[1]))
+        keys = ndb.put_multi(puts)
+        logging.debug("Added %r" % (keys,))
 
     deferred.defer(index_items,
                    [item.key],
@@ -191,6 +201,6 @@ def proxy(rq):
 
 
 routes = [
-    get(r"/proxy\.html", proxy),
+    get(r"/proxy.html", proxy),
     get(r"/scrape", trigger),
 ]
