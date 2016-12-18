@@ -74,7 +74,7 @@ class ScrapeQueue(ndb.Model):
             if queue.category_queue or queue.item_queue:
                 queue.put()
             else:
-                queue.delete()
+                queue.key.delete()
 
 
 class Category(ndb.Model):

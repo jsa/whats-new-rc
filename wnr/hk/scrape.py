@@ -79,9 +79,9 @@ def scrape_category(html):
     ScrapeQueue.queue(_store, categories=cat_urls, items=item_urls)
 
 
-def save_cats(data):
+def save_cats(path):
     ckeys = []
-    for url, title in data:
+    for url, title in path:
         cat = Category.query(Category.store == _store,
                              Category.title == title) \
                       .get()
