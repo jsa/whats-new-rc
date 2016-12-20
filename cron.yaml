@@ -1,8 +1,8 @@
 cron:
 
-- description: Memcache categories
-  url: /_cron/cache-categories
-  schedule: every 10 minutes synchronized
+#- description: Memcache categories
+#  url: /_cron/cache-categories
+#  schedule: every 10 minutes synchronized
 
 - description: Trigger HobbyKing crawl
   url: /_hk/scrape
