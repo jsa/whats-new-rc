@@ -4,7 +4,6 @@ indexes:
   properties:
   - name: parent_cat
   - name: store
-  - name: title
 
 - kind: Price
   ancestor: yes

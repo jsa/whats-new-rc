@@ -10,7 +10,7 @@ import webapp2
 
 from .models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from .search import index_items
-from .util import get, nub, ok_resp
+from .util import cacheize, get, nub, ok_resp
 
 
 _store = 'hk'
@@ -79,25 +79,35 @@ def scrape_category(html):
     ScrapeQueue.queue(_store, categories=cat_urls, items=item_urls)
 
 
+@cacheize(60 * 60)
+def children(cat_key):
+    # store filter is needed for querying root cats (where parent is None)
+    q = Category.query(Category.store == _store,
+                       Category.parent_cat == cat_key)
+    child_cats = q.fetch()
+    return {c.title: (c.key, c.url) for c in child_cats}
+
+
 def save_cats(path):
     ckeys = []
     for url, title in path:
         parent = ckeys[-1] if ckeys else None
-        q = Category.query(Category.store == _store,
-                           Category.parent_cat == parent,
-                           Category.title == title)
-        cat = q.get()
-        if cat:
-            if cat.url != url:
+        struct = children(parent).get(title)
+        if struct:
+            cat_key, _url = struct
+            if _url != url:
+                cat = cat_key.get()
                 cat.url = url
                 cat.put()
+                children(parent, _invalidate=True)
         else:
             cat = Category(store=_store,
                            title=title,
                            url=url,
                            parent_cat=parent)
-            cat.put()
-        ckeys.append(cat.key)
+            cat_key = cat.put()
+            children(parent, _invalidate=True)
+        ckeys.append(cat_key)
     return ckeys
 
 
@@ -138,10 +148,12 @@ def scrape_item(html):
 
     cat_html = html.split('class="breadcrumbsPos"', 1)[1] \
                    .rsplit('class="breadcrumbsPos"', 1)[0]
-    cat_el = re.compile(r'<a href="(.+?)".*?><.+?>(.+?)</')
-    cats = [(url, h.unescape(name))
-            for url, name in cat_el.findall(cat_html)]
+    cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html)
     assert cats
+    assert len(cats) < 8 \
+           and not any("<" in name for url, name in cats), \
+        "Category scraping probably failed:\n%s" % (cats,)
+    cats = [(url, h.unescape(name).strip()) for url, name in cats]
     logging.debug("Parsed categories:\n%s"
                   % "\n".join("%s (%s)" % (name, url)
                               for url, name in cats))
