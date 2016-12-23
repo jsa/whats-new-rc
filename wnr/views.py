@@ -209,6 +209,10 @@ def search(rq):
         pages = [(p, page_q(p), p == page)
                  for p in range(start_page, end_page + 1)]
 
+        if not pages:
+            # zero results, not even a single page
+            return
+
         if pages[0][0] > 1:
             pages.insert(0, (1, page_q(1), False))
         if pages[-1][0] < max_page:
