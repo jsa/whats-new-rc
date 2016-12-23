@@ -26,6 +26,9 @@ def trigger(rq):
 
 
 def queue_categories():
+    # clear queue first
+    ScrapeQueue.get_key(_store).delete()
+
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
 

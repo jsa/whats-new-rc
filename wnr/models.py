@@ -22,11 +22,15 @@ class ScrapeQueue(ndb.Model):
     item_queue = ndb.TextProperty(repeated=True)
 
     @classmethod
+    def get_key(cls, store):
+        return ndb.Key(Store, store, cls, 1)
+
+    @classmethod
     @ndb.transactional
     def queue(cls, store, categories=None, items=None):
         if not (categories or items):
             return
-        key = ndb.Key(Store, store, cls, 1)
+        key = cls.get_key(store)
         queue = key.get()
         if queue:
             if categories:
@@ -42,7 +46,7 @@ class ScrapeQueue(ndb.Model):
     @classmethod
     @ndb.transactional
     def peek(cls, store):
-        queue = ndb.Key(Store, store, cls, 1).get()
+        queue = cls.get_key(store).get()
         if not queue:
             return None, None
         # As items are commonly in multiple categories, prefer processing
@@ -58,7 +62,7 @@ class ScrapeQueue(ndb.Model):
     @classmethod
     @ndb.transactional
     def pop(cls, store, url):
-        queue = ndb.Key(Store, store, cls, 1).get()
+        queue = cls.get_key(store).get()
         if not queue:
             return
         def ne(_url):
