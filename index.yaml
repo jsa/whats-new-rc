@@ -2,6 +2,7 @@ indexes:
 
 - kind: Category
   properties:
+  - name: parent_cat
   - name: store
   - name: title
 

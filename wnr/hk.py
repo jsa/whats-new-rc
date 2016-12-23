@@ -8,9 +8,9 @@ from google.appengine.ext import deferred, ndb
 from HTMLParser import HTMLParser
 import webapp2
 
-from ..models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
-from ..search import index_items
-from ..util import get, nub, ok_resp
+from .models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
+from .search import index_items
+from .util import get, nub, ok_resp
 
 
 _store = 'hk'
@@ -82,16 +82,14 @@ def scrape_category(html):
 def save_cats(path):
     ckeys = []
     for url, title in path:
-        cat = Category.query(Category.store == _store,
-                             Category.title == title) \
-                      .get()
         parent = ckeys[-1] if ckeys else None
+        q = Category.query(Category.store == _store,
+                           Category.parent_cat == parent,
+                           Category.title == title)
+        cat = q.get()
         if cat:
-            if not parent:
-                # don't remove earlier parent
-                parent = cat.parent_cat
-            if (cat.url, cat.parent_cat) != (url, parent):
-                cat.populate(url=url, parent_cat=parent)
+            if cat.url != url:
+                cat.url = url
                 cat.put()
         else:
             cat = Category(store=_store,
