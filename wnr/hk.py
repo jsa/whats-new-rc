@@ -8,12 +8,13 @@ from google.appengine.ext import deferred, ndb
 from HTMLParser import HTMLParser
 import webapp2
 
+from . import store_info
 from .models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
 from .search import index_items
 from .util import cacheize, get, nub, ok_resp
 
 
-_store = 'hk'
+_store = store_info('hk', "HobbyKing")
 
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
@@ -27,7 +28,7 @@ def trigger(rq):
 
 def queue_categories():
     # clear queue first
-    ScrapeQueue.get_key(_store).delete()
+    ScrapeQueue.get_key(_store.id).delete()
 
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
@@ -42,12 +43,12 @@ def queue_categories():
     assert len(urls) > 100, "Found only %d category URLs" % len(urls)
 
     logging.debug("Found %d categories" % len(urls))
-    ScrapeQueue.queue(_store, categories=urls)
+    ScrapeQueue.queue(_store.id, categories=urls)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
 
 
 def process_queue():
-    url, url_type = ScrapeQueue.peek(_store)
+    url, url_type = ScrapeQueue.peek(_store.id)
     if not url:
         return
 
@@ -64,7 +65,7 @@ def process_queue():
     else:
         raise taskqueue.TransientError("%d for %s" % (rs.status_code, url))
 
-    ScrapeQueue.pop(_store, url)
+    ScrapeQueue.pop(_store.id, url)
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
 
 
@@ -79,13 +80,13 @@ def scrape_category(html):
         cat_urls.append(npage.group(1))
         logging.debug("Queuing next page %s" % (cat_urls,))
 
-    ScrapeQueue.queue(_store, categories=cat_urls, items=item_urls)
+    ScrapeQueue.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
 @cacheize(60 * 60)
 def children(cat_key):
     # store filter is needed for querying root cats (where parent is None)
-    q = Category.query(Category.store == _store,
+    q = Category.query(Category.store == _store.id,
                        Category.parent_cat == cat_key)
     child_cats = q.fetch()
     return {c.title: (c.key, c.url) for c in child_cats}
@@ -104,7 +105,7 @@ def save_cats(path):
                 cat.put()
                 children(parent, _invalidate=True)
         else:
-            cat = Category(store=_store,
+            cat = Category(store=_store.id,
                            title=title,
                            url=url,
                            parent_cat=parent)
@@ -182,7 +183,7 @@ def scrape_item(html):
     else:
         logging.warn("Found %d product IDs: %r" % (len(pids), pids))
 
-    key = ndb.Key(Store, _store, Item, sku)
+    key = ndb.Key(Store, _store.id, Item, sku)
     item = key.get()
     if item:
         item.populate(**fields)

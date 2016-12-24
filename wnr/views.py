@@ -41,10 +41,12 @@ class ItemView(object):
         return [cls(d, categories) for d in docs]
 
     def __init__(self, doc, categories):
+        from . import hk
         self.doc = doc
         store_id = doc.field('store').value
+        assert store_id == hk._store.id
         self.store = {'id': store_id,
-                      'title': "HobbyKing"}
+                      'title': hk._store.title}
         self.photo_url = urllib.quote(
             "/i/%s/%s" % (store_id, doc.field('sku').value))
 
