@@ -81,7 +81,7 @@ def index_items(item_keys):
                 break
         return path
 
-    def item_fields(item):
+    def item_data(item):
         fields = [search.AtomField('store', item.key.parent().id()),
                   search.AtomField('sku', item.key.id()),
                   search.TextField('title', item.title),
@@ -91,10 +91,15 @@ def index_items(item_keys):
                   search.NumberField('added', to_unix(item.added)),
                   search.NumberField('checked', to_unix(item.checked))]
 
+        facets = []
+
         if item.category:
             id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
             if id_path:
                 fields.append(search.TextField('categories', " ".join(id_path)))
+                # NumberFacet is 30 bit
+                facets += [search.AtomFacet('category', cat_id)
+                           for cat_id in id_path]
 
         prices = Price.query(ancestor=item.key) \
                       .order(-Price.timestamp) \
@@ -117,7 +122,7 @@ def index_items(item_keys):
                              % (item.key.id(), rank, _rank))
                 rank = _rank
 
-        return fields, rank
+        return rank, fields, facets
 
     adds, dels = [], []
     for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
@@ -126,10 +131,11 @@ def index_items(item_keys):
         if not item or item.removed:
             dels.append(doc_id)
         else:
-            fields, rank = item_fields(item)
+            rank, fields, facets = item_data(item)
             adds.append(search.Document(
                 doc_id=doc_id,
                 fields=fields,
+                facets=facets,
                 language='en',
                 # global sort by latest-ness
                 rank=rank))
@@ -157,7 +163,7 @@ def reindex_items(cursor=None):
         index_items(keys)
         if not (cursor and more):
             break
-        if time.time() - start > 60:
+        if time.time() - start > 30:
             deferred.defer(reindex_items,
                            cursor=cursor,
                            _queue='indexing')
