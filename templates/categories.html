@@ -19,6 +19,7 @@
 			{% for cat in tree recursive %}
 			<li>
 				<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
+				{% if cat.item_count %}({{ cat.item_count }}){% endif %}
 				{% if cat.children %}
 				<ul class="submenu">
 					{{ loop(cat.children) }}

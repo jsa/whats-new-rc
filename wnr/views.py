@@ -271,6 +271,39 @@ def item_image(rq, store, sku):
                             content_type=rs.headers['Content-Type'])
 
 
+@cacheize(60 * 60)
+def item_counts(cat_id):
+    found_limit = 1000
+    opts = g_search.QueryOptions(limit=1, number_found_accuracy=found_limit)
+    f_opts = g_search.FacetOptions(
+                 discovery_value_limit=g_search.MAXIMUM_FACET_VALUES_TO_RETURN,
+                 depth=found_limit)
+    index = g_search.Index(ITEMS_INDEX)
+    rs = index.search(g_search.Query("categories:%d" % cat_id,
+                                     opts,
+                                     return_facets=['category'],
+                                     facet_options=f_opts),
+                      deadline=10)
+    if rs.facets:
+        assert len(rs.facets) == 1
+        cat_counts = rs.facets[0]
+        assert cat_counts.name == 'category'
+        cat_counts = cat_counts.values
+    else:
+        cat_counts = []
+
+    def maybe_plus(n):
+        if n >= found_limit:
+            return "%d+" % found_limit
+        else:
+            return "%d" % n
+
+    counts = {int(value.label): maybe_plus(value.count)
+              for value in cat_counts}
+    counts[cat_id] = maybe_plus(rs.number_found)
+    return counts
+
+
 @cache(30)
 def categories(rq, store):
     store_info = get_stores().get(store)
@@ -294,8 +327,24 @@ def categories(rq, store):
                          for c in children(path)],
         }
 
+    root = children([None])
+    tree = [expand([c[0]], c[1]) for c in root]
+
+    counts = {}
+    for c_id, c_info in root:
+        counts.update(item_counts(c_id))
+
+    def add_counts(cat):
+        cat['item_count'] = counts.get(cat['id'])
+        for cat in cat['children']:
+            add_counts(cat)
+
+    for cat in tree:
+        add_counts(cat)
+
     ctx = {
         'store': store_info,
-        'tree': [expand([c[0]], c[1]) for c in children([None])],
+        'tree': tree,
     }
+
     return render("categories.html", ctx)
