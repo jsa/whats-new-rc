@@ -15,6 +15,11 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
+def get_stores():
+    from . import hk
+    return {hk._store.id: hk._store}
+
+
 @cache(10)
 def about(rq):
     return render("about.html")
@@ -38,15 +43,14 @@ def format_price(cur, amt):
 class ItemView(object):
     @classmethod
     def make_views(cls, docs, categories):
-        return [cls(d, categories) for d in docs]
+        stores = get_stores()
+        return [cls(d, categories, stores) for d in docs]
 
-    def __init__(self, doc, categories):
-        from . import hk
+    def __init__(self, doc, categories, stores):
         self.doc = doc
         store_id = doc.field('store').value
-        assert store_id == hk._store.id
         self.store = {'id': store_id,
-                      'title': hk._store.title}
+                      'title': stores[store_id].title}
         self.photo_url = urllib.quote(
             "/i/%s/%s" % (store_id, doc.field('sku').value))
 
@@ -97,11 +101,14 @@ class ItemView(object):
 @cacheize(15 * 60)
 def read_categories(store_id=None):
     if store_id:
-        return {c.key.id(): c.title
+        return {c.key.id(): (c.title,
+                             c.parent_cat and c.parent_cat.id())
                 for c in Category.query(Category.store == store_id)
                                  .iter(batch_size=50)}
     else:
-        return {c.key.id(): (c.store, c.title)
+        return {c.key.id(): (c.store,
+                             c.title,
+                             c.parent_cat and c.parent_cat.id())
                 for c in Category.query().iter(batch_size=50)}
 
 
@@ -175,10 +182,10 @@ def search(rq):
         except ValueError:
             return not_found("Invalid categories %s" % (cats,))
         cats = nub(cats)
-        cat_names = map(get_categories().get, cats)
-        if not all(cat_names):
+        cat_infos = map(get_categories().get, cats)
+        if not all(cat_infos):
             return not_found("Invalid categories %s" % (cats,))
-        cats = zip(cats, cat_names)
+        cats = zip(cats, cat_infos)
         cat_ids = ['"%d"' % c[0] for c in cats]
         expr.append("categories:(%s)" % " OR ".join(cat_ids))
         cat_names = [c[1][1] for c in cats]
@@ -262,3 +269,33 @@ def item_image(rq, store, sku):
     return webapp2.Response(rs.content,
                             rs.status_code,
                             content_type=rs.headers['Content-Type'])
+
+
+@cache(30)
+def categories(rq, store):
+    store_info = get_stores().get(store)
+    if not store_info:
+        return not_found("Unknown store '%s'" % store)
+
+    cats = read_categories(store)
+
+    def children(path):
+        childs = filter(lambda (c_id, (title, parent_id)):
+                            c_id not in path
+                            and parent_id == path[-1],
+                        cats.iteritems())
+        return sorted(childs, key=lambda c: c[1][0])
+
+    def expand(path, (title, parent_id)):
+        return {
+            'id': path[-1],
+            'title': title,
+            'children': [expand(path + [c[0]], c[1])
+                         for c in children(path)],
+        }
+
+    ctx = {
+        'store': store_info,
+        'tree': [expand([c[0]], c[1]) for c in children([None])],
+    }
+    return render("categories.html", ctx)

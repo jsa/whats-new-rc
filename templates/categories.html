@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block css %}
+{{ super() }}
+<style type="text/css">
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="jumbotron">
+	<div class="container">
+		<h1>{{ store.title }} product categories</h1>
+	</div>
+</div>
+
+<div class="container">
+	<div class="row">
+		<ul>
+			{% for cat in tree recursive %}
+			<li>
+				<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
+				{% if cat.children %}
+				<ul class="submenu">
+					{{ loop(cat.children) }}
+				</ul>
+				{% endif %}
+			</li>
+			{% endfor %}
+		</ul>
+	</div>
+</div>
+{% endblock %}
