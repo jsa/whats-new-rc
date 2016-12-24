@@ -150,19 +150,24 @@ def scrape_item(html):
               'removed': None}
 
     cat_html = html.split('class="breadcrumbsPos"', 1)[1] \
-                   .rsplit('class="breadcrumbsPos"', 1)[0]
-    cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html)
-    assert cats
-    assert len(cats) < 8 \
-           and not any("<" in name for url, name in cats), \
-        "Category scraping probably failed:\n%s" % (cats,)
-    cats = [(url, h.unescape(name).strip()) for url, name in cats]
-    logging.debug("Parsed categories:\n%s"
-                  % "\n".join("%s (%s)" % (name, url)
-                              for url, name in cats))
-    cat_keys = save_cats(cats)
+                   .rsplit('class="breadcrumbsPos"', 1)
+    if len(cat_html) == 2:
+        cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html[0])
+        assert cats
+        assert len(cats) < 8 \
+               and not any("<" in name for url, name in cats), \
+            "Category scraping probably failed:\n%s" % (cats,)
+        cats = [(url, h.unescape(name).strip()) for url, name in cats]
+        logging.debug("Parsed categories:\n%s"
+                      % "\n".join("%s (%s)" % (name, url)
+                                  for url, name in cats))
+        cat_keys = save_cats(cats)
+    else:
+        assert len(cat_html) == 1
+        logging.warn("Couldn't find any categories")
+        cat_keys = []
 
-    fields['category'] = cat_keys[-1]
+    fields['category'] = cat_keys[-1] if cat_keys else None
 
     def prod_ids():
         for prod_id in re.findall(r"product_value = (\d+);", html):
