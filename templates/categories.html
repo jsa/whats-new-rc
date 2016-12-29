@@ -15,19 +15,33 @@
 
 <div class="container">
 	<div class="row">
-		<ul>
-			{% for cat in tree recursive %}
-			<li>
-				<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
-				{% if cat.item_count %}({{ cat.item_count }}){% endif %}
-				{% if cat.children %}
+		{% for cat in tree %}
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h3 class="panel-title">
+					<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
+					{% if cat.item_count %}({{ cat.item_count }}){% endif %}
+				</h3>
+			</div>
+			{% if cat.children %}
+			<div class="panel-body">
 				<ul class="submenu">
-					{{ loop(cat.children) }}
+					{% for cat in cat.children recursive %}
+					<li>
+						<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
+						{% if cat.item_count %}({{ cat.item_count }}){% endif %}
+					</li>
+					{% if cat.children %}
+					<ul class="submenu">
+						{{ loop(cat.children) }}
+					</ul>
+					{% endif %}
+					{% endfor %}
 				</ul>
-				{% endif %}
-			</li>
-			{% endfor %}
-		</ul>
+			</div>
+			{% endif %}
+		</div>
+		{% endfor %}
 	</div>
 </div>
 {% endblock %}
