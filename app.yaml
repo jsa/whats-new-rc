@@ -27,7 +27,6 @@ libraries:
 
 skip_files:
 - ^\.
-- ^[^/]+\.html$
 - ^.*\.md$
 - ^.*\.py[co]$
 - ^.*/config\.json$
@@ -60,3 +59,7 @@ handlers:
 
 - url: /.*
   script: main.app
+
+error_handlers:
+- error_code: over_quota
+  file: over-quota.html
