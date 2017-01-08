@@ -148,8 +148,10 @@ def asciidict(d):
             if v}
 
 
-def qset(param, value=None, as_dict=False):
+def qset(param, value=None, path=None, as_dict=False):
     rq = webapp2.get_request()
+    if path is None:
+        path = rq.path
     if rq.GET:
         q = rq.GET.copy()
     else:
@@ -161,9 +163,9 @@ def qset(param, value=None, as_dict=False):
     if as_dict:
         return q
     if q:
-        return "%s?%s" % (rq.path, urllib.urlencode(asciidict(q)))
+        return "%s?%s" % (path, urllib.urlencode(asciidict(q)))
     else:
-        return rq.path
+        return path
 
 
 def as_form(q):
