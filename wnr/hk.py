@@ -75,10 +75,20 @@ def scrape_category(html):
     logging.info("Found %d items" % len(item_urls))
 
     cat_urls = []
+
     npage = re.search(r'href="([^"]+)" title="Next"', html)
     if npage:
         cat_urls.append(npage.group(1))
         logging.debug("Queuing next page %s" % (cat_urls,))
+
+    sub_cats = html.split('class="popularBrands', 1)
+    if len(sub_cats) > 1:
+        sub_cats = sub_cats[1].rsplit('class="brandImage', 1)
+        assert len(sub_cats) == 2
+        sub_cats = href.findall(sub_cats[0])
+        logging.debug("Found %d sub-categories:\n%s"
+                      % (len(sub_cats), "\n".join(sub_cats)))
+        cat_urls += sub_cats
 
     ScrapeQueue.queue(_store.id, categories=cat_urls, items=item_urls)
 
