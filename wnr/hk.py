@@ -153,7 +153,13 @@ def scrape_item(html):
 
     image, title, typ, url = map(og.get, ('image', 'title', 'type', 'url'))
     assert typ == "product", "Unexpected type %r" % typ
-    assert all((image, title, url))
+    assert image and url
+
+    # title isn't encoded properly in og props
+    title = re.search(r'itemprop="image"[^>]+alt="(.+?)"', html, re.DOTALL)
+    if title:
+        title = h.unescape(title.group(1)).strip()
+    assert title, "Failed to parse title"
 
     fields = {'image': image,
               'title': title,
@@ -192,6 +198,10 @@ def scrape_item(html):
         fields['custom'] = {'hk-id': pids.pop()}
     else:
         logging.warn("Found %d product IDs: %r" % (len(pids), pids))
+
+    logging.debug("Parsed item data:\n%s"
+                  % "\n".join("%s: %s" % i
+                              for i in sorted(fields.iteritems())))
 
     key = ndb.Key(Store, _store.id, Item, sku)
     item = key.get()
