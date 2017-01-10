@@ -55,11 +55,12 @@ def process_queue():
     logging.info("Scraping %r" % url)
     rs = urlfetch.fetch(url, follow_redirects=False, deadline=60)
     if rs.status_code == 200:
+        content = rs.content.decode('utf-8')
         if url_type == PAGE_TYPE.CATEGORY:
-            scrape_category(rs.content)
+            scrape_category(content)
         else:
             assert url_type == PAGE_TYPE.ITEM
-            scrape_item(rs.content)
+            scrape_item(content)
     elif rs.status_code in (301, 302, 404):
         logging.error("%d for %s, skipping" % (rs.status_code, url))
     else:
