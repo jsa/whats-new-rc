@@ -156,10 +156,13 @@ def scrape_item(html):
     assert typ == "product", "Unexpected type %r" % typ
     assert image and url
 
-    # title isn't encoded properly in og props
-    title = re.search(r'itemprop="image"[^>]+alt="(.+?)"', html, re.DOTALL)
-    if title:
-        title = h.unescape(title.group(1)).strip()
+    def img_alt():
+        title = re.search(r'itemprop="image"[^>]+alt="(.+?)"', html, re.DOTALL)
+        if title:
+            return h.unescape(title.group(1)).strip()
+
+    # title isn't encoded properly in og props; priorize alternate source
+    title = img_alt() or title
     assert title, "Failed to parse title"
 
     fields = {'image': image,
