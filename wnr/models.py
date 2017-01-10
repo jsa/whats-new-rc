@@ -16,6 +16,17 @@ class Store(ndb.Model):
     pass
 
 
+def filter_urls(urls):
+    def check_url(url):
+        if url == "#":
+            return False
+        if not any(url.startswith(proto)
+                   for proto in ("http://", "https://")):
+            raise ValueError("Invalid URL: '%s'" % url)
+        return True
+    return filter(check_url, urls)
+
+
 class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
@@ -30,6 +41,10 @@ class ScrapeQueue(ndb.Model):
     def queue(cls, store, categories=None, items=None):
         if not (categories or items):
             return
+        if categories:
+            categories = filter_urls(categories)
+        if items:
+            items = filter_urls(items)
         key = cls.get_key(store)
         queue = key.get()
         if queue:
