@@ -98,7 +98,7 @@ class ItemView(object):
         return "ItemView(%r)" % (self.doc,)
 
 
-@cacheize(15 * 60)
+@cacheize(10 * 60)
 def read_categories(store_id=None):
     if store_id:
         return {c.key.id(): (c.title,
@@ -279,7 +279,7 @@ def item_counts(cat_id):
                  discovery_value_limit=g_search.MAXIMUM_FACET_VALUES_TO_RETURN,
                  depth=found_limit)
     index = g_search.Index(ITEMS_INDEX)
-    rs = index.search(g_search.Query("categories:%d" % cat_id,
+    rs = index.search(g_search.Query('categories:"%d"' % cat_id,
                                      opts,
                                      return_facets=['category'],
                                      facet_options=f_opts),
@@ -304,19 +304,36 @@ def item_counts(cat_id):
     return counts
 
 
+@cacheize(60 * 60)
+def empty_categories(store_id):
+    index = g_search.Index(ITEMS_INDEX)
+    opts = g_search.QueryOptions(limit=1,
+                                 number_found_accuracy=1,
+                                 ids_only=True)
+
+    def is_empty(cat_id):
+        rs = index.search(g_search.Query('categories:"%d"' % cat_id, opts),
+                          deadline=10)
+        return not rs.results
+
+    return set(filter(is_empty, read_categories(store_id).iterkeys()))
+
+
 @cache(30)
 def categories(rq, store):
     store_info = get_stores().get(store)
     if not store_info:
         return not_found("Unknown store '%s'" % store)
 
-    cats = read_categories(store)
+    empty = empty_categories(store)
+    cats = filter(lambda (cat_id, cat): cat_id not in empty,
+                  read_categories(store).iteritems())
 
     def children(path):
         childs = filter(lambda (c_id, (title, parent_id)):
                             c_id not in path
                             and parent_id == path[-1],
-                        cats.iteritems())
+                        cats)
         return sorted(childs, key=lambda c: c[1][0])
 
     def expand(path, (title, parent_id)):
