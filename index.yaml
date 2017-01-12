@@ -5,6 +5,11 @@ indexes:
   - name: parent_cat
   - name: store
 
+- kind: Item
+  ancestor: yes
+  properties:
+  - name: url
+
 - kind: Price
   ancestor: yes
   properties:

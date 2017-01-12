@@ -5,8 +5,8 @@ from random import randint
 from google.appengine.api.datastore_errors import BadValueError
 from google.appengine.ext import ndb
 
-from pyblooming.bloom import BloomFilter
 from pyblooming.bitmap import Bitmap
+from pyblooming.bloom import BloomFilter
 
 
 """
@@ -70,50 +70,62 @@ class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
-    bloom_data = ndb.BlobProperty(compressed=True)
+    # hash of previously indexed items, to enable crawling only new items
+    bloom_indexed = ndb.BlobProperty(compressed=True)
+    bloom_crawled = ndb.BlobProperty(compressed=True)
     bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
+    def initialize(store_id):
+        key = ndb.Key(ScrapeQueue, store_id)
+        key.delete()
+        queue = cls(key=key, bloom_salt=randint(1, 100000))
+        indexed = queue.scan_indexed()
+        queue.bloom_indexed = indexed.bitmap.mmap
+        queue.put()
+        return queue
+
+    @classmethod
     @ndb.transactional
-    def queue(cls, store, categories=None, items=None):
+    def queue(cls, store_id, categories=None, items=None):
         if not (categories or items):
             return
 
-        key = ndb.Key(cls, store)
-        queue = key.get()
-        bf = queue and queue.get_bloom()
+        key = ndb.Key(cls, store_id)
+        queue = key.get() or cls.initialize(store_id)
+        indexed, crawled = \
+            map(cls.get_bloom, (queue.bloom_indexed, queue.bloom_crawled))
 
         def unseen(url):
-            if bf and queue.salt_url(url) in bf:
-                logging.warn("%r: ignoring seen URL %s" % (key, url))
+            _url = queue.salt_url(url)
+            if _url in indexed:
+                logging.warn("%r: ignoring already indexed URL %s" % (key, url))
+                return False
+            if _url in crawled:
+                logging.warn("%r: ignoring already crawled URL %s" % (key, url))
                 return False
             return True
 
         if categories:
-            categories = filter(unseen, filter_urls(categories))
-        if items:
-            items = filter(unseen, filter_urls(items))
+            categories = filter_urls(categories)
+            categories = filter(lambda url: url not in queue.category_queue,
+                                categories)
+            categories = filter(unseen, categories)
+            queue.category_queue += categories
 
-        if queue:
-            if categories:
-                categories = filter(lambda url: url not in queue.category_queue,
-                                    categories)
-                queue.category_queue += categories
-            if items:
-                items = filter(lambda url: url not in queue.item_queue,
-                               items)
-                queue.item_queue += items
-        else:
-            queue = cls(key=key,
-                        category_queue=categories or [],
-                        item_queue=items or [],
-                        bloom_salt=randint(1, 100000))
+        if items:
+            items = filter_urls(items)
+            items = filter(lambda url: url not in queue.item_queue,
+                           items)
+            items = filter(unseen, items)
+            queue.item_queue += items
+
         queue.put()
 
     @classmethod
     @ndb.transactional
-    def peek(cls, store):
-        queue = ndb.Key(cls, store).get()
+    def peek(cls, store_id):
+        queue = ndb.Key(cls, store_id).get()
         if queue:
             if queue.item_queue:
                 return queue.item_queue[0], PAGE_TYPE.ITEM
@@ -123,8 +135,8 @@ class ScrapeQueue(ndb.Model):
 
     @classmethod
     @ndb.transactional
-    def pop(cls, store, url):
-        queue = ndb.Key(cls, store).get()
+    def pop(cls, store_id, url):
+        queue = ndb.Key(cls, store_id).get()
         if not queue:
             return
         def ne(_url):
@@ -139,28 +151,40 @@ class ScrapeQueue(ndb.Model):
         if not mod:
             return
         if queue.category_queue or queue.item_queue:
-            bf = queue.get_bloom()
-            bf.add(queue.salt_url(url))
-            queue.bloom_data = bf.bitmap.mmap
+            crawled = queue.get_bloom(queue.bloom_crawled)
+            crawled.add(queue.salt_url(url))
+            queue.bloom_crawled = crawled.bitmap.mmap
             queue.put()
         else:
             queue.key.delete()
 
-    def salt_url(self, url):
-        return str("%d$%s" % (self.bloom_salt, url))
-
-    def get_bloom(self):
+    @classmethod
+    def get_bloom(cls, bloom_data):
         bloom_args = (100000, .01)
-        if self.bloom_data:
+        if bloom_data:
             size, ideal_k = BloomFilter.params_for_capacity(*bloom_args)
             bitmap = Bitmap(size)
-            bitmap.mmap = self.bloom_data
+            bitmap.mmap = bloom_data
             return BloomFilter(bitmap, ideal_k)
         else:
             bf = BloomFilter.for_capacity(*bloom_args)
-            logging.debug("ScrapeQueue bloomfilter data size %dkB"
+            logging.debug("get_bloom(): data size %dkB"
                           % round(len(bf.bitmap.mmap) / 1024))
             return bf
+
+    def scan_indexed(self):
+        store_key = ndb.Key(Store, self.key.id())
+        itr = Item.query(ancestor=store_key) \
+                  .iter(projection=[Item.url],
+                        batch_size=200)
+        indexed = self.get_bloom(None)
+        for item in itr:
+            assert item.url
+            indexed.add(self.salt_url(item.url))
+        return indexed
+
+    def salt_url(self, url):
+        return str("%d$%s" % (self.bloom_salt, url))
 
 
 class Category(ndb.Model):
