@@ -81,10 +81,10 @@ class ScrapeQueue(ndb.Model):
 
         key = ndb.Key(cls, store)
         queue = key.get()
-        bf = queue.get_bloom()
+        bf = queue and queue.get_bloom()
 
         def unseen(url):
-            if queue and queue.salt_url(url) in bf:
+            if bf and queue.salt_url(url) in bf:
                 logging.warn("%r: ignoring seen URL %s" % (key, url))
                 return False
             return True
@@ -116,14 +116,10 @@ class ScrapeQueue(ndb.Model):
         queue = ndb.Key(cls, store).get()
         if not queue:
             return None, None
-        # As items are commonly in multiple categories, prefer processing
-        # categories first. But, this may lead to excessively long item
-        # queue, for which reason priorize the item queue if the item queue
-        # is sufficiently long.
-        if queue.category_queue and len(queue.item_queue) < 1000:
-            return queue.category_queue[0], PAGE_TYPE.CATEGORY
         if queue.item_queue:
             return queue.item_queue[0], PAGE_TYPE.ITEM
+        if queue.category_queue:
+            return queue.category_queue[0], PAGE_TYPE.CATEGORY
         return None, None
 
     @classmethod
