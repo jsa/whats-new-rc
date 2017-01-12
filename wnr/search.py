@@ -109,20 +109,7 @@ def index_items(item_keys):
             prices = map(format_history_price, prices)
             fields.append(search.TextField('price_history', " ".join(prices)))
 
-        rank = to_unix(item.added)
-        if item.custom and item.added < datetime(2016, 12, 11):
-            # The HK product ID seems *very* random, but still, adjusting
-            # the "initial scrape" items based on it. (May well be worse
-            # than random, though.)
-            hk_id = item.custom.get('hk-id')
-            if hk_id:
-                adj = min(decimal.Decimal(hk_id) / 60000, 1)
-                _rank = int(rank * adj)
-                logging.info("%s: adjusted rank %d -> %d"
-                             % (item.key.id(), rank, _rank))
-                rank = _rank
-
-        return rank, fields, facets
+        return fields, facets
 
     adds, dels = [], []
     for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
@@ -131,14 +118,14 @@ def index_items(item_keys):
         if not item or item.removed:
             dels.append(doc_id)
         else:
-            rank, fields, facets = item_data(item)
+            fields, facets = item_data(item)
             adds.append(search.Document(
                 doc_id=doc_id,
                 fields=fields,
                 facets=facets,
                 language='en',
                 # global sort by latest-ness
-                rank=rank))
+                rank=to_unix(item.added)))
 
     index = search.Index(ITEMS_INDEX)
     if adds:
