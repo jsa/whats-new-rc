@@ -4,7 +4,12 @@ cron:
 #  url: /_cron/cache-categories
 #  schedule: every 10 minutes synchronized
 
-- description: Trigger HobbyKing crawl
+- description: Crawl new HobbyKing items
   url: /_hk/scrape
   schedule: every mon,wed,fri 10:00
+  timezone: Europe/Helsinki
+
+- description: Full HobbyKing crawl
+  url: /_hk/scrape?rescan
+  schedule: every sat 4:00
   timezone: Europe/Helsinki

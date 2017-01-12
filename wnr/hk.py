@@ -22,12 +22,14 @@ ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
 
 
 def trigger(rq):
-    deferred.defer(queue_categories, _queue='scrape')
+    deferred.defer(queue_categories,
+                   rescan='rescan' in rq.GET,
+                   _queue='scrape')
     return webapp2.Response()
 
 
-def queue_categories():
-    ScrapeQueue.initialize(_store.id)
+def queue_categories(rescan=False):
+    ScrapeQueue.initialize(_store.id, skip_indexed=not rescan)
 
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
