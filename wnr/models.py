@@ -114,12 +114,11 @@ class ScrapeQueue(ndb.Model):
     @ndb.transactional
     def peek(cls, store):
         queue = ndb.Key(cls, store).get()
-        if not queue:
-            return None, None
-        if queue.item_queue:
-            return queue.item_queue[0], PAGE_TYPE.ITEM
-        if queue.category_queue:
-            return queue.category_queue[0], PAGE_TYPE.CATEGORY
+        if queue:
+            if queue.item_queue:
+                return queue.item_queue[0], PAGE_TYPE.ITEM
+            if queue.category_queue:
+                return queue.category_queue[0], PAGE_TYPE.CATEGORY
         return None, None
 
     @classmethod
