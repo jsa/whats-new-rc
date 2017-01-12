@@ -69,7 +69,7 @@ def process_queue():
     ScrapeQueue.pop(_store.id, url)
     #q = ndb.Key(ScrapeQueue, _store.id).get()
     #assert q.salt_url(url) in q.get_bloom()
-    deferred.defer(process_queue, _queue='scrape', _countdown=5)
+    deferred.defer(process_queue, _queue='scrape', _countdown=3)
 
 
 def scrape_category(html):
