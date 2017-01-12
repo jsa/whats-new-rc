@@ -155,8 +155,6 @@ def search(rq):
         page = 1
 
     page_size = 60
-    count_accy = 1000
-    index = g_search.Index(ITEMS_INDEX)
     page_limit = g_search.MAXIMUM_SEARCH_OFFSET / page_size + 1
     if page > page_limit:
         return redir(page_q(page_limit))
@@ -167,11 +165,12 @@ def search(rq):
     #            [g_search.SortExpression('added', g_search.SortExpression.DESCENDING)],
     #            limit=g_search.MAXIMUM_SORTED_DOCUMENTS)
 
+    count_accy = 1000
+    index = g_search.Index(ITEMS_INDEX)
     opts = g_search.QueryOptions(
                limit=page_size,
                number_found_accuracy=count_accy,
                offset=page_size * (page - 1))
-
     expr, filters = [], []
 
     cats = rq.GET.get("c")
@@ -193,7 +192,7 @@ def search(rq):
 
     search_q = rq.GET.get("q")
     if search_q:
-        search_q = re.sub(r"[^a-z0-9]", " ", search_q.lower().strip()).strip()
+        search_q = re.sub(r"[^a-z0-9~]", " ", search_q.lower().strip()).strip()
     if search_q:
         expr.append("title:(%s)" % search_q)
         filters.append(('"%s"' % search_q, qset("q")))
