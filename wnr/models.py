@@ -137,32 +137,31 @@ class ScrapeQueue(ndb.Model):
         if url in queue.item_queue:
             queue.item_queue = filter(ne, queue.item_queue)
             mod = True
-        if mod:
-            if queue.category_queue or queue.item_queue:
-                bf = queue.get_bloom()
-                bf.add(queue.salt_url(url))
-                queue.set_bloom(bf)
-                queue.put()
-            else:
-                queue.key.delete()
+        if not mod:
+            return
+        if queue.category_queue or queue.item_queue:
+            bf = queue.get_bloom()
+            bf.add(queue.salt_url(url))
+            queue.bloom_data = bf.bitmap.mmap
+            queue.put()
+        else:
+            queue.key.delete()
 
     def salt_url(self, url):
         return str("%d$%s" % (self.bloom_salt, url))
 
     def get_bloom(self):
+        bloom_args = (100000, .01)
         if self.bloom_data:
-            size, ideal_k = BloomFilter.params_for_capacity(100000, .01)
+            size, ideal_k = BloomFilter.params_for_capacity(*bloom_args)
             bitmap = Bitmap(size)
             bitmap.mmap = self.bloom_data
             return BloomFilter(bitmap, ideal_k)
         else:
-            return BloomFilter.for_capacity(100000, .01)
-
-    def set_bloom(self, bf):
-        bf.flush()
-        self.bloom_data = bf.bitmap.mmap
-        logging.debug("%r: bloomfilter data size %dkB"
-                      % (self.key, round(len(self.bloom_data) / 1024)))
+            bf = BloomFilter.for_capacity(*bloom_args)
+            logging.debug("ScrapeQueue bloomfilter data size %dkB"
+                          % round(len(bf.bitmap.mmap) / 1024))
+            return bf
 
 
 class Category(ndb.Model):
