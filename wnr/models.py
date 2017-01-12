@@ -70,7 +70,7 @@ class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
-    bloom_data = ndb.BlobProperty(compressed=True)
+    bloom_data = ndb.BlobProperty()
     bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
