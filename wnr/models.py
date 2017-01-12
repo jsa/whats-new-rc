@@ -71,11 +71,7 @@ class ScrapeQueue(ndb.Model):
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
     bloom_data = ndb.BlobProperty(compressed=True)
-    bloom_rand = ndb.IntegerProperty(required=True)
-
-    @classmethod
-    def bloom_val(cls, url, rand):
-        return str("%d$%s" % (rand, url))
+    bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
     @ndb.transactional
@@ -88,7 +84,7 @@ class ScrapeQueue(ndb.Model):
         bf = queue.get_bloom()
 
         def unseen(url):
-            if queue and cls.bloom_val(url, queue.bloom_rand) in bf:
+            if queue and queue.salt_url(url) in bf:
                 logging.warn("%r: ignoring seen URL %s" % (key, url))
                 return False
             return True
@@ -111,7 +107,7 @@ class ScrapeQueue(ndb.Model):
             queue = cls(key=key,
                         category_queue=categories or [],
                         item_queue=items or [],
-                        bloom_rand=randint(1, 100000))
+                        bloom_salt=randint(1, 100000))
         queue.put()
 
     @classmethod
@@ -148,11 +144,14 @@ class ScrapeQueue(ndb.Model):
         if mod:
             if queue.category_queue or queue.item_queue:
                 bf = queue.get_bloom()
-                bf.add(cls.bloom_val(url, queue.bloom_rand))
+                bf.add(queue.salt_url(url))
                 queue.set_bloom(bf)
                 queue.put()
             else:
                 queue.key.delete()
+
+    def salt_url(self, url):
+        return str("%d$%s" % (self.bloom_salt, url))
 
     def get_bloom(self):
         if self.bloom_data:

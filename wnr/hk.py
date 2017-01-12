@@ -28,7 +28,7 @@ def trigger(rq):
 
 def queue_categories():
     # clear queue first
-    ScrapeQueue.get_key(_store.id).delete()
+    ndb.Key(ScrapeQueue, _store.id).delete()
 
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
@@ -67,6 +67,8 @@ def process_queue():
         raise taskqueue.TransientError("%d for %s" % (rs.status_code, url))
 
     ScrapeQueue.pop(_store.id, url)
+    #q = ndb.Key(ScrapeQueue, _store.id).get()
+    #assert q.salt_url(url) in q.get_bloom()
     deferred.defer(process_queue, _queue='scrape', _countdown=5)
 
 
