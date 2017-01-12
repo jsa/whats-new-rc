@@ -74,15 +74,24 @@ class ScrapeQueue(ndb.Model):
     bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
-    def initialize(store_id, skip_indexed=True):
-        key = ndb.Key(ScrapeQueue, store_id)
-        key.delete()
-        queue = cls(key=key, bloom_salt=randint(1, 100000))
+    def initialize(cls, store_id, skip_indexed=True):
+        key = ndb.Key(cls, store_id)
+        salt = randint(1, 100000)
         if skip_indexed:
-            indexed = queue.scan_indexed()
-            queue.bloom_seen = indexed.bitmap.mmap
-        queue.put()
-        return queue
+            # using a throwaway entity
+            indexed = cls(key=key, bloom_salt=salt).scan_indexed()
+        else:
+            indexed = None
+
+        @ndb.transactional
+        def tx():
+            key.delete()
+            queue = cls(key=key, bloom_salt=salt)
+            if indexed:
+                queue.bloom_seen = indexed.bitmap.mmap
+            queue.put()
+            return queue
+        return tx()
 
     @classmethod
     @ndb.transactional
