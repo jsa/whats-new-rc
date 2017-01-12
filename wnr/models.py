@@ -100,10 +100,10 @@ class ScrapeQueue(ndb.Model):
         def unseen(url):
             _url = queue.salt_url(url)
             if _url in indexed:
-                logging.warn("%r: ignoring already indexed URL %s" % (key, url))
+                logging.warn("%r: skipping already indexed URL %s" % (key, url))
                 return False
             if _url in crawled:
-                logging.warn("%r: ignoring already crawled URL %s" % (key, url))
+                logging.warn("%r: skipping already crawled URL %s" % (key, url))
                 return False
             return True
 
@@ -177,7 +177,8 @@ class ScrapeQueue(ndb.Model):
         store_key = ndb.Key(Store, self.key.id())
         itr = Item.query(ancestor=store_key) \
                   .iter(projection=[Item.url],
-                        batch_size=200)
+                        batch_size=1000,
+                        deadline=30)
         indexed = self.get_bloom(None)
         for item in itr:
             assert item.url
