@@ -70,9 +70,7 @@ class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
-    # hash of previously indexed items, to enable crawling only new items
-    bloom_indexed = ndb.BlobProperty(compressed=True)
-    bloom_crawled = ndb.BlobProperty(compressed=True)
+    bloom_seen = ndb.BlobProperty(compressed=True)
     bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
@@ -82,7 +80,7 @@ class ScrapeQueue(ndb.Model):
         queue = cls(key=key, bloom_salt=randint(1, 100000))
         if skip_indexed:
             indexed = queue.scan_indexed()
-            queue.bloom_indexed = indexed.bitmap.mmap
+            queue.bloom_seen = indexed.bitmap.mmap
         queue.put()
         return queue
 
@@ -94,18 +92,14 @@ class ScrapeQueue(ndb.Model):
 
         key = ndb.Key(cls, store_id)
         queue = key.get() or cls.initialize(store_id)
-        indexed, crawled = \
-            map(cls.get_bloom, (queue.bloom_indexed, queue.bloom_crawled))
+        seen = cls.get_bloom(queue.bloom_seen)
 
         def unseen(url):
-            _url = queue.salt_url(url)
-            if _url in indexed:
-                logging.warn("%r: skipping already indexed URL %s" % (key, url))
+            if queue.salt_url(url) in seen:
+                logging.warn("%r: skipping already seen URL %s" % (key, url))
                 return False
-            if _url in crawled:
-                logging.warn("%r: skipping already crawled URL %s" % (key, url))
-                return False
-            return True
+            else:
+                return True
 
         if categories:
             categories = filter_urls(categories)
@@ -152,9 +146,9 @@ class ScrapeQueue(ndb.Model):
         if not mod:
             return
         if queue.category_queue or queue.item_queue:
-            crawled = queue.get_bloom(queue.bloom_crawled)
-            crawled.add(queue.salt_url(url))
-            queue.bloom_crawled = crawled.bitmap.mmap
+            seen = queue.get_bloom(queue.bloom_seen)
+            seen.add(queue.salt_url(url))
+            queue.bloom_seen = seen.bitmap.mmap
             queue.put()
         else:
             queue.key.delete()
