@@ -1,9 +1,48 @@
 from collections import namedtuple
+import logging
+from random import randint
 
 from google.appengine.api.datastore_errors import BadValueError
 from google.appengine.ext import ndb
 
-from .util import nub
+from pyblooming.bloom import BloomFilter
+from pyblooming.bitmap import Bitmap
+
+
+"""
+# test snippet for bloomfilter
+
+from pyblooming.bloom import BloomFilter
+from pyblooming.bitmap import Bitmap
+
+b = BloomFilter.for_capacity(100000, .01)
+for x in range(20000):
+  x = b.add(str(x))
+
+for x in range(20000):
+  if str(x) not in b:
+    print x
+
+for x in range(20000, 40000):
+  if str(x) in b:
+    print x
+
+bloom_data = b.bitmap.mmap
+print len(bloom_data)
+
+bytes, ideal_k = BloomFilter.params_for_capacity(100000, .01)
+bitmap = Bitmap(bytes)
+bitmap.mmap = bloom_data
+b = BloomFilter(bitmap, ideal_k)
+
+for x in range(20000):
+  if str(x) not in b:
+    print x
+
+for x in range(20000, 40000):
+  if str(x) in b:
+    print x
+"""
 
 
 PAGE_TYPE = namedtuple('QueuePageType',
@@ -31,37 +70,54 @@ class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
+    bloom_data = ndb.BlobProperty(compressed=True)
+    bloom_rand = ndb.IntegerProperty(required=True)
 
     @classmethod
-    def get_key(cls, store):
-        return ndb.Key(Store, store, cls, 1)
+    def bloom_val(cls, url, rand):
+        return str("%d$%s" % (rand, url))
 
     @classmethod
     @ndb.transactional
     def queue(cls, store, categories=None, items=None):
         if not (categories or items):
             return
-        if categories:
-            categories = filter_urls(categories)
-        if items:
-            items = filter_urls(items)
-        key = cls.get_key(store)
+
+        key = ndb.Key(cls, store)
         queue = key.get()
+        bf = queue.get_bloom()
+
+        def unseen(url):
+            if queue and cls.bloom_val(url, queue.bloom_rand) in bf:
+                logging.warn("%r: ignoring seen URL %s" % (key, url))
+                return False
+            return True
+
+        if categories:
+            categories = filter(unseen, filter_urls(categories))
+        if items:
+            items = filter(unseen, filter_urls(items))
+
         if queue:
             if categories:
-                queue.category_queue = nub(queue.category_queue + categories)
+                categories = filter(lambda url: url not in queue.category_queue,
+                                    categories)
+                queue.category_queue += categories
             if items:
-                queue.item_queue = nub(queue.item_queue + items)
+                items = filter(lambda url: url not in queue.item_queue,
+                               items)
+                queue.item_queue += items
         else:
             queue = cls(key=key,
                         category_queue=categories or [],
-                        item_queue=items or [])
+                        item_queue=items or [],
+                        bloom_rand=randint(1, 100000))
         queue.put()
 
     @classmethod
     @ndb.transactional
     def peek(cls, store):
-        queue = cls.get_key(store).get()
+        queue = ndb.Key(cls, store).get()
         if not queue:
             return None, None
         # As items are commonly in multiple categories, prefer processing
@@ -77,7 +133,7 @@ class ScrapeQueue(ndb.Model):
     @classmethod
     @ndb.transactional
     def pop(cls, store, url):
-        queue = cls.get_key(store).get()
+        queue = ndb.Key(cls, store).get()
         if not queue:
             return
         def ne(_url):
@@ -91,9 +147,27 @@ class ScrapeQueue(ndb.Model):
             mod = True
         if mod:
             if queue.category_queue or queue.item_queue:
+                bf = queue.get_bloom()
+                bf.add(cls.bloom_val(url, queue.bloom_rand))
+                queue.set_bloom(bf)
                 queue.put()
             else:
                 queue.key.delete()
+
+    def get_bloom(self):
+        if self.bloom_data:
+            size, ideal_k = BloomFilter.params_for_capacity(100000, .01)
+            bitmap = Bitmap(size)
+            bitmap.mmap = self.bloom_data
+            return BloomFilter(bitmap, ideal_k)
+        else:
+            return BloomFilter.for_capacity(100000, .01)
+
+    def set_bloom(self, bf):
+        bf.flush()
+        self.bloom_data = bf.bitmap.mmap
+        logging.debug("%r: bloomfilter data size %dkB"
+                      % (self.key, round(len(self.bloom_data) / 1024)))
 
 
 class Category(ndb.Model):
