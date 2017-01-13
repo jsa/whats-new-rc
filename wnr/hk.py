@@ -195,7 +195,7 @@ def scrape_item(html):
     if len(cat_html) == 2:
         cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html[0])
         assert cats
-        assert len(cats) < 8 \
+        assert len(cats) < 10 \
                and not any("<" in name for url, name in cats), \
             "Category scraping probably failed:\n%s" % (cats,)
         cats = [(url, h.unescape(name).strip()) for url, name in cats]
