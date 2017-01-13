@@ -6,10 +6,10 @@ cron:
 
 - description: Crawl new HobbyKing items
   url: /_hk/scrape
-  schedule: every mon,wed,fri 10:00
+  schedule: every mon,tue,wed,thu,fri 9:00
   timezone: Europe/Helsinki
 
 - description: Full HobbyKing crawl
   url: /_hk/scrape?rescan
-  schedule: every sat 4:00
+  schedule: every sat 2:00
   timezone: Europe/Helsinki

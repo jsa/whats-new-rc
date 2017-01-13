@@ -29,7 +29,8 @@ def trigger(rq):
 
 
 def queue_categories(rescan=False):
-    ScrapeQueue.initialize(_store.id, skip_indexed=not rescan)
+    assert ScrapeQueue.initialize(_store.id, skip_indexed=not rescan), \
+        "Previous crawl still in progress"
 
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))

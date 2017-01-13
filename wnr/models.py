@@ -75,6 +75,9 @@ class ScrapeQueue(ndb.Model):
 
     @classmethod
     def initialize(cls, store_id, skip_indexed=True):
+        """Returns True if a new crawl was initialized, and False if
+        an earlier crawl was already in progress.
+        """
         key = ndb.Key(cls, store_id)
         salt = randint(1, 100000)
         if skip_indexed:
@@ -85,12 +88,13 @@ class ScrapeQueue(ndb.Model):
 
         @ndb.transactional
         def tx():
-            key.delete()
+            if key.get():
+                return False
             queue = cls(key=key, bloom_salt=salt)
             if indexed:
                 queue.bloom_seen = indexed.bitmap.mmap
             queue.put()
-            return queue
+            return True
         return tx()
 
     @classmethod
@@ -100,7 +104,8 @@ class ScrapeQueue(ndb.Model):
             return
 
         key = ndb.Key(cls, store_id)
-        queue = key.get() or cls.initialize(store_id)
+        queue = key.get()
+        assert queue, "No crawl in progress"
         seen = cls.get_bloom(queue.bloom_seen)
 
         def unseen(url):
