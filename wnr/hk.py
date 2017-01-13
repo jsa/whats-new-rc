@@ -86,11 +86,16 @@ def process_queue():
                           "%d for %s" % (rs.status_code, url))
 
         elif url_type == PAGE_TYPE.CATEGORY:
-            if rs.status_code != 200:
+            if rs.status_code == 200:
+                scrape_category(url, content)
+                break
+            elif rs.status_code in (301, 302):
+                redir = rs.headers['Location']
+                logging.warn("Category redirect %s -> %s" % (url, redir))
+                url = redir
+            else:
                 raise taskqueue.TransientError(
                           "%d for %s" % (rs.status_code, url))
-            scrape_category(url, content)
-            break
 
         else:
             raise ValueError("Unknown URL type %r" % (url_type,))
