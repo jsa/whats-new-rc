@@ -8,6 +8,7 @@ indexes:
 - kind: Item
   ancestor: yes
   properties:
+  - name: removed
   - name: url
 
 - kind: Price

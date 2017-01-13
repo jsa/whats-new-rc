@@ -51,46 +51,65 @@ def queue_categories(rescan=False):
 
 
 def process_queue():
-    url, url_type = ScrapeQueue.peek(_store.id)
-    if not url:
+    queue_url, url_type = ScrapeQueue.peek(_store.id)
+    if not queue_url:
         return
 
-    @ndb.transactional
-    def set_removed(model, url):
-        now, mod = datetime.utcnow(), []
-        for obj in model.query(model.url == url).fetch():
-            if not obj.removed:
-                obj.removed = now
-                mod.append(obj)
-        if mod:
-            ndb.put_multi(mod)
+    # @ndb.transactional
+    # def set_removed(keys):
+    #     now, mod = datetime.utcnow(), []
+    #     for obj in ndb.get_multi(keys):
+    #         if not obj.removed:
+    #             obj.removed = now
+    #             mod.append(obj)
+    #     if mod:
+    #         ndb.put_multi(mod)
 
+    url = queue_url
     logging.info("Scraping %r" % url)
-    rs = urlfetch.fetch(url, follow_redirects=False, deadline=20)
-    if rs.status_code == 200:
-        content = rs.content.decode('utf-8')
-        if url_type == PAGE_TYPE.CATEGORY:
-            scrape_category(content)
-        elif url_type == PAGE_TYPE.ITEM:
-            scrape_item(content)
-        else:
-            raise ValueError("Unknown URL type %r" % (url_type,))
-    elif rs.status_code in (301, 302, 404):
-        logging.warn("%d for %s, flagging removed" % (rs.status_code, url))
-        if url_type == PAGE_TYPE.CATEGORY:
-            set_removed(Category, url)
-        elif url_type == PAGE_TYPE.ITEM:
-            set_removed(Item, url)
-        else:
-            raise ValueError("Unknown URL type %r" % (url_type,))
-    else:
-        raise taskqueue.TransientError("%d for %s" % (rs.status_code, url))
 
-    ScrapeQueue.pop(_store.id, url)
+    while True:
+        rs = urlfetch.fetch(url, follow_redirects=False, deadline=20)
+        content = rs.content.decode('utf-8')
+
+        if url_type == PAGE_TYPE.ITEM:
+            if rs.status_code == 200:
+                scrape_item(url, content)
+                break
+            elif rs.status_code in (301, 302):
+                redir = rs.headers['Location']
+                assert redir == url[:-1], \
+                    "%d for %s: %s" % (rs.status_code, url, redir)
+                url = url[:-1]
+            else:
+                raise taskqueue.TransientError(
+                          "%d for %s" % (rs.status_code, url))
+
+        elif url_type == PAGE_TYPE.CATEGORY:
+            if rs.status_code != 200:
+                raise taskqueue.TransientError(
+                          "%d for %s" % (rs.status_code, url))
+            scrape_category(url, content)
+            break
+
+        else:
+            raise ValueError("Unknown URL type %r" % (url_type,))
+
+    # logging.warn("%d for %s, flagging removed" % (rs.status_code, url))
+    # if url_type == PAGE_TYPE.CATEGORY:
+    #     keys = Category.query(Category.url == url) \
+    #                    .fetch(keys_only=True)
+    #     set_removed(keys)
+    # elif url_type == PAGE_TYPE.ITEM:
+    #     keys = Item.query(Item.url == url) \
+    #                .fetch(keys_only=True)
+    #     set_removed(keys)
+
+    ScrapeQueue.pop(_store.id, queue_url)
     deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
-def scrape_category(html):
+def scrape_category(url, html):
     items = html.split('id="list-item-')[1:]
     item_urls = [href.search(item).group(1) for item in items]
     logging.info("Found %d items" % len(item_urls))
@@ -146,7 +165,7 @@ def save_cats(path):
     return ckeys
 
 
-def scrape_item(html):
+def scrape_item(url, html):
     h = HTMLParser()
 
     props = dict(itemprop.findall(html))
@@ -172,9 +191,11 @@ def scrape_item(html):
         logging.warn("Failed to find an appropriate price: %r" % (price,))
         price = None
 
-    image, title, typ, url = map(og.get, ('image', 'title', 'type', 'url'))
+    image, title, typ, _url = map(og.get, ('image', 'title', 'type', 'url'))
     assert typ == "product", "Unexpected type %r" % typ
-    assert image and url
+    assert _url == url, "Item URL mismatch: %s != %s" \
+                        % (url, _url)
+    assert image
 
     def img_alt():
         title = re.search(r'itemprop="image"[^>]+alt="(.+?)"', html, re.DOTALL)

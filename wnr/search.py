@@ -86,7 +86,8 @@ def index_items(item_keys):
         fields = [search.AtomField('store', item.key.parent().id()),
                   search.AtomField('sku', item.key.id()),
                   search.TextField('title', item.title),
-                  search.TokenizedPrefixField('title_prefix', item.title),
+                  # "Unsupported field type TOKENIZED_PREFIX"
+                  # search.TokenizedPrefixField('title_prefix', item.title),
                   search.AtomField('url', item.url),
                   search.AtomField('image', item.image),
                   # DateField supports only date accuracy (ie. not second)

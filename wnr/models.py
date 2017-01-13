@@ -70,7 +70,10 @@ class ScrapeQueue(ndb.Model):
     modified = ndb.DateTimeProperty(auto_now=True)
     category_queue = ndb.TextProperty(repeated=True)
     item_queue = ndb.TextProperty(repeated=True)
-    bloom_seen = ndb.BlobProperty(compressed=True)
+    # separating item and category blooms as there have been
+    # some item URL mixups
+    bloom_categories = ndb.BlobProperty(compressed=True)
+    bloom_items = ndb.BlobProperty(compressed=True)
     bloom_salt = ndb.IntegerProperty(required=True)
 
     @classmethod
@@ -82,17 +85,17 @@ class ScrapeQueue(ndb.Model):
         salt = randint(1, 100000)
         if skip_indexed:
             # using a throwaway entity
-            indexed = cls(key=key, bloom_salt=salt).scan_indexed()
+            bf_items = cls(key=key, bloom_salt=salt).scan_indexed()
         else:
-            indexed = None
+            bf_items = None
 
         @ndb.transactional
         def tx():
             if key.get():
                 return False
             queue = cls(key=key, bloom_salt=salt)
-            if indexed:
-                queue.bloom_seen = indexed.bitmap.mmap
+            if bf_items:
+                queue.bloom_items = bf_items.bitmap.mmap
             queue.put()
             return True
         return tx()
@@ -106,27 +109,29 @@ class ScrapeQueue(ndb.Model):
         key = ndb.Key(cls, store_id)
         queue = key.get()
         assert queue, "No crawl in progress"
-        seen = cls.get_bloom(queue.bloom_seen)
 
-        def unseen(url):
-            if queue.salt_url(url) in seen:
-                logging.info("%r: skipping already seen URL %s" % (key, url))
-                return False
-            else:
-                return True
+        def unseen(bf_data):
+            bf = cls.get_bloom(bf_data)
+            def inner(url):
+                if queue.salt_url(url) in bf:
+                    logging.info("%r: skipping already seen URL %s" % (key, url))
+                    return False
+                else:
+                    return True
+            return inner
 
         if categories:
             categories = filter_urls(categories)
             categories = filter(lambda url: url not in queue.category_queue,
                                 categories)
-            categories = filter(unseen, categories)
+            categories = filter(unseen(queue.bloom_categories), categories)
             queue.category_queue += categories
 
         if items:
             items = filter_urls(items)
             items = filter(lambda url: url not in queue.item_queue,
                            items)
-            items = filter(unseen, items)
+            items = filter(unseen(queue.bloom_items), items)
             queue.item_queue += items
 
         queue.put()
@@ -153,16 +158,19 @@ class ScrapeQueue(ndb.Model):
         mod = False
         if url in queue.category_queue:
             queue.category_queue = filter(ne, queue.category_queue)
+            bf = queue.get_bloom(queue.bloom_categories)
+            bf.add(queue.salt_url(url))
+            queue.bloom_categories = bf.bitmap.mmap
             mod = True
         if url in queue.item_queue:
             queue.item_queue = filter(ne, queue.item_queue)
+            bf = queue.get_bloom(queue.bloom_items)
+            bf.add(queue.salt_url(url))
+            queue.bloom_items = bf.bitmap.mmap
             mod = True
         if not mod:
             return
         if queue.category_queue or queue.item_queue:
-            seen = queue.get_bloom(queue.bloom_seen)
-            seen.add(queue.salt_url(url))
-            queue.bloom_seen = seen.bitmap.mmap
             queue.put()
         else:
             queue.key.delete()
@@ -183,14 +191,22 @@ class ScrapeQueue(ndb.Model):
 
     def scan_indexed(self):
         store_key = ndb.Key(Store, self.key.id())
-        itr = Item.query(ancestor=store_key) \
-                  .iter(projection=[Item.url],
-                        batch_size=1000,
-                        deadline=30)
+        query = Item.query(ancestor=store_key) \
+                    .filter(Item.removed == None) \
+                    .order(Item.url)
         indexed = self.get_bloom(None)
-        for item in itr:
-            assert item.url
-            indexed.add(self.salt_url(item.url))
+        batch = None
+        while True:
+            if batch:
+                q = query.filter(Item.url > batch[-1].url)
+            else:
+                q = query
+            batch = q.fetch(1000, projection=[Item.url])
+            if not batch:
+                break
+            for item in batch:
+                assert item.url
+                indexed.add(self.salt_url(item.url))
         return indexed
 
     def salt_url(self, url):
