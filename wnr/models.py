@@ -110,7 +110,7 @@ class ScrapeQueue(ndb.Model):
 
         def unseen(url):
             if queue.salt_url(url) in seen:
-                logging.warn("%r: skipping already seen URL %s" % (key, url))
+                logging.info("%r: skipping already seen URL %s" % (key, url))
                 return False
             else:
                 return True
