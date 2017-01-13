@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from datetime import datetime
 import decimal
 import json
@@ -85,13 +86,14 @@ def index_items(item_keys):
         fields = [search.AtomField('store', item.key.parent().id()),
                   search.AtomField('sku', item.key.id()),
                   search.TextField('title', item.title),
+                  search.TokenizedPrefixField('title_prefix', item.title),
                   search.AtomField('url', item.url),
                   search.AtomField('image', item.image),
                   # DateField supports only date accuracy (ie. not second)
                   search.NumberField('added', to_unix(item.added)),
                   search.NumberField('checked', to_unix(item.checked))]
 
-        facets = []
+        tags, facets = [], []
 
         if item.category:
             id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
@@ -108,6 +110,11 @@ def index_items(item_keys):
             fields.append(search.NumberField('us_cents', to_us_cents(prices[0])))
             prices = map(format_history_price, prices)
             fields.append(search.TextField('price_history', " ".join(prices)))
+
+        # NOT queries are expensive, thus providing information in both forms
+        tags.append(u'»removed' if item.removed else u'»active')
+
+        fields.append(search.TextField('tags', " ".join(tags)))
 
         return fields, facets
 

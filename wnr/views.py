@@ -192,7 +192,8 @@ def search(rq):
 
     search_q = rq.GET.get("q")
     if search_q:
-        search_q = re.sub(r"[^a-z0-9~]", " ", search_q.lower().strip()).strip()
+        search_q = re.sub(ur"[^a-z0-9&_~»]", " ", search_q.lower().strip()) \
+                     .strip()
     if search_q:
         expr.append("title:(%s)" % search_q)
         filters.append(('"%s"' % search_q, qset("q")))

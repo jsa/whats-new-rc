@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 import logging
 import re
@@ -46,7 +47,7 @@ def queue_categories(rescan=False):
 
     logging.debug("Found %d categories" % len(urls))
     ScrapeQueue.queue(_store.id, categories=urls)
-    deferred.defer(process_queue, _queue='scrape', _countdown=5)
+    deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
 def process_queue():
@@ -54,22 +55,39 @@ def process_queue():
     if not url:
         return
 
+    @ndb.transactional
+    def set_removed(model, url):
+        now, mod = datetime.utcnow(), []
+        for obj in model.query(model.url == url).fetch():
+            if not obj.removed:
+                obj.removed = now
+                mod.append(obj)
+        if mod:
+            ndb.put_multi(mod)
+
     logging.info("Scraping %r" % url)
-    rs = urlfetch.fetch(url, follow_redirects=False, deadline=60)
+    rs = urlfetch.fetch(url, follow_redirects=False, deadline=20)
     if rs.status_code == 200:
         content = rs.content.decode('utf-8')
         if url_type == PAGE_TYPE.CATEGORY:
             scrape_category(content)
-        else:
-            assert url_type == PAGE_TYPE.ITEM
+        elif url_type == PAGE_TYPE.ITEM:
             scrape_item(content)
+        else:
+            raise ValueError("Unknown URL type %r" % (url_type,))
     elif rs.status_code in (301, 302, 404):
-        logging.error("%d for %s, skipping" % (rs.status_code, url))
+        logging.warn("%d for %s, flagging removed" % (rs.status_code, url))
+        if url_type == PAGE_TYPE.CATEGORY:
+            set_removed(Category, url)
+        elif url_type == PAGE_TYPE.ITEM:
+            set_removed(Item, url)
+        else:
+            raise ValueError("Unknown URL type %r" % (url_type,))
     else:
         raise taskqueue.TransientError("%d for %s" % (rs.status_code, url))
 
     ScrapeQueue.pop(_store.id, url)
-    deferred.defer(process_queue, _queue='scrape', _countdown=3)
+    deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
 def scrape_category(html):

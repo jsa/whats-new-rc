@@ -203,6 +203,7 @@ class Category(ndb.Model):
     title = ndb.StringProperty(required=True)
     url = ndb.StringProperty(required=True)
     parent_cat = ndb.KeyProperty()
+    removed = ndb.DateTimeProperty()
 
 
 class Item(ndb.Model):
