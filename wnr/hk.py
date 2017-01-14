@@ -50,8 +50,13 @@ def queue_categories(rescan=False):
     deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
+def cookie_value(cookies):
+    return "; ".join("%s=%s" % (cookie.key, cookie.coded_value)
+                     for cookie in cookies.itervalues())
+
+
 def process_queue():
-    queue_url, url_type = ScrapeQueue.peek(_store.id)
+    queue_url, url_type, cookies = ScrapeQueue.peek(_store.id)
     if not queue_url:
         return
 
@@ -65,11 +70,23 @@ def process_queue():
     #     if mod:
     #         ndb.put_multi(mod)
 
-    url = queue_url
+    url, headers = queue_url, {}
     logging.info("Scraping %r" % url)
 
     while True:
-        rs = urlfetch.fetch(url, follow_redirects=False, deadline=20)
+        if cookies:
+            headers['Cookie'] = cookie_value(cookies)
+
+        rs = urlfetch.fetch(url,
+                            headers=headers,
+                            follow_redirects=False,
+                            deadline=20)
+
+        cookie = rs.headers.get('Set-Cookie')
+        if cookie:
+            cookies.load(cookie)
+            ScrapeQueue.save_cookies(_store.id, cookies)
+
         content = rs.content.decode('utf-8')
 
         if url_type == PAGE_TYPE.ITEM:
@@ -83,7 +100,11 @@ def process_queue():
                 url = url[:-1]
             else:
                 raise taskqueue.TransientError(
-                          "%d for %s" % (rs.status_code, url))
+                          "%d for %s\nBody:\n%s\n\nHeaders:\n%r"
+                          % (rs.status_code,
+                             url,
+                             content.encode('ascii', 'xmlcharrefreplace')[:2000],
+                             rs.headers))
 
         elif url_type == PAGE_TYPE.CATEGORY:
             if rs.status_code == 200:
@@ -285,8 +306,23 @@ def scrape_item(url, html):
 
 
 def proxy(rq):
-    rs = urlfetch.fetch(rq.GET['url'], deadline=60)
-    return webapp2.Response(rs.content)
+    queue = ndb.Key(ScrapeQueue, _store.id).get()
+    headers = {}
+    if queue:
+        cookies = queue.get_cookies()
+        if cookies:
+            headers['Cookie'] = cookie_value(cookies)
+
+    rs = urlfetch.fetch(rq.GET['url'],
+                        headers=headers,
+                        follow_redirects=False,
+                        deadline=60)
+    cookie = rs.headers.get('Set-Cookie')
+    if cookie:
+        cookies.load(cookie)
+        ScrapeQueue.save_cookies(_store.id, cookies)
+
+    return webapp2.Response(rs.content, rs.status_code)
 
 
 routes = [

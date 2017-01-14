@@ -1,4 +1,5 @@
 from collections import namedtuple
+from Cookie import SimpleCookie
 import logging
 from random import randint
 
@@ -75,6 +76,7 @@ class ScrapeQueue(ndb.Model):
     bloom_categories = ndb.BlobProperty(compressed=True)
     bloom_items = ndb.BlobProperty(compressed=True)
     bloom_salt = ndb.IntegerProperty(required=True)
+    cookies = ndb.JsonProperty()
 
     @classmethod
     def initialize(cls, store_id, skip_indexed=True):
@@ -142,10 +144,25 @@ class ScrapeQueue(ndb.Model):
         queue = ndb.Key(cls, store_id).get()
         if queue:
             if queue.item_queue:
-                return queue.item_queue[0], PAGE_TYPE.ITEM
+                return (queue.item_queue[0],
+                        PAGE_TYPE.ITEM,
+                        queue.get_cookies())
             if queue.category_queue:
-                return queue.category_queue[0], PAGE_TYPE.CATEGORY
-        return None, None
+                return (queue.category_queue[0],
+                        PAGE_TYPE.CATEGORY,
+                        queue.get_cookies())
+        return None, None, None
+
+    @classmethod
+    @ndb.transactional
+    def save_cookies(cls, store_id, cookies):
+        queue = ndb.Key(cls, store_id).get()
+        if queue:
+            queue.cookies = {cookie.key: cookie.value
+                             for cookie in cookies.itervalues()}
+            logging.debug("%r: updated cookies: %s"
+                          % (queue.key, queue.cookies))
+            queue.put()
 
     @classmethod
     @ndb.transactional
@@ -188,6 +205,14 @@ class ScrapeQueue(ndb.Model):
             logging.debug("get_bloom(): data size %dkB"
                           % round(len(bf.bitmap.mmap) / 1024))
             return bf
+
+    def get_cookies(self):
+        if self.cookies:
+            logging.debug("%r: loaded cookies: %s" % (self.key, self.cookies))
+            return SimpleCookie({str(k): v.encode('utf-8')
+                                 for k, v in self.cookies.iteritems()})
+        else:
+            return SimpleCookie()
 
     def scan_indexed(self):
         store_key = ndb.Key(Store, self.key.id())
