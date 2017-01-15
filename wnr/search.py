@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from datetime import datetime
 import decimal
 import json
@@ -115,7 +114,7 @@ def index_items(item_keys):
         # NOT queries are expensive, thus providing information in both forms
         tags.append('removed' if item.removed else 'active')
 
-        fields += [search.AtomField('tags', "tag:%s" % t) for t in tags]
+        fields += [search.AtomField('tags', "#%s" % t) for t in tags]
 
         return fields, facets
 

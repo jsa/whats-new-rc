@@ -173,6 +173,14 @@ def search(rq):
                offset=page_size * (page - 1))
     expr, filters = [], []
 
+    search_q = rq.GET.get("q")
+    if search_q:
+        search_q = re.sub(r"[^a-z0-9&_~#]", " ", search_q.lower().strip()) \
+                     .strip()
+    if search_q:
+        expr.append(search_q)
+        filters.append(('"%s"' % search_q, qset("q")))
+
     cats = rq.GET.get("c")
     if cats:
         cats = cats.split(",")
@@ -190,16 +198,9 @@ def search(rq):
         cat_names = [c[1][1] for c in cats]
         filters.append((" OR ".join(cat_names), qset("c")))
 
-    search_q = rq.GET.get("q")
-    if search_q:
-        search_q = re.sub(ur"[^a-z0-9&_~»]", " ", search_q.lower().strip()) \
-                     .strip()
-    if search_q:
-        expr.append("title:(%s)" % search_q)
-        filters.append(('"%s"' % search_q, qset("q")))
-
     if not expr:
-        expr = ["added <= %d" % to_unix(datetime.utcnow())]
+        # basically just to have some query for the search...
+        expr = ["added<=%d" % to_unix(datetime.utcnow())]
 
     with log_latency("Search latency {:,d}ms"):
         rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
