@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import logging
+import os
 import re
 
 from google.appengine.api import taskqueue, urlfetch
@@ -60,15 +61,18 @@ def process_queue():
     if not queue_url:
         return
 
-    # @ndb.transactional
-    # def set_removed(keys):
-    #     now, mod = datetime.utcnow(), []
-    #     for obj in ndb.get_multi(keys):
-    #         if not obj.removed:
-    #             obj.removed = now
-    #             mod.append(obj)
-    #     if mod:
-    #         ndb.put_multi(mod)
+    retries = int(os.getenv('HTTP_X_APPENGINE_TASKRETRYCOUNT', 0))
+
+    @ndb.transactional
+    def set_removed(keys):
+        now, mod = datetime.utcnow(), []
+        for obj in ndb.get_multi(keys):
+            if not obj.removed:
+                obj.removed = now
+                mod.append(obj)
+        if mod:
+            ndb.put_multi(mod)
+            logging.warn("Flagged removed: %r" % [o.key for o in mod])
 
     url, headers = queue_url, {}
     logging.info("Scraping %r" % url)
@@ -98,6 +102,10 @@ def process_queue():
                 assert redir == url[:-1], \
                     "%d for %s: %s" % (rs.status_code, url, redir)
                 url = url[:-1]
+            elif rs.status_code == 404 and retries > 3:
+                keys = Item.query(Item.url == url) \
+                           .fetch(keys_only=True)
+                set_removed(keys)
             else:
                 raise taskqueue.TransientError(
                           "%d for %s\nBody:\n%s\n\nHeaders:\n%r"
@@ -114,22 +122,16 @@ def process_queue():
                 redir = rs.headers['Location']
                 logging.warn("Category redirect %s -> %s" % (url, redir))
                 url = redir
+            elif rs.status_code == 404 and retries > 3:
+                keys = Category.query(Category.url == url) \
+                               .fetch(keys_only=True)
+                set_removed(keys)
             else:
                 raise taskqueue.TransientError(
                           "%d for %s" % (rs.status_code, url))
 
         else:
             raise ValueError("Unknown URL type %r" % (url_type,))
-
-    # logging.warn("%d for %s, flagging removed" % (rs.status_code, url))
-    # if url_type == PAGE_TYPE.CATEGORY:
-    #     keys = Category.query(Category.url == url) \
-    #                    .fetch(keys_only=True)
-    #     set_removed(keys)
-    # elif url_type == PAGE_TYPE.ITEM:
-    #     keys = Item.query(Item.url == url) \
-    #                .fetch(keys_only=True)
-    #     set_removed(keys)
 
     ScrapeQueue.pop(_store.id, queue_url)
     deferred.defer(process_queue, _queue='scrape', _countdown=2)
