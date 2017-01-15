@@ -113,9 +113,9 @@ def index_items(item_keys):
             fields.append(search.TextField('price_history', " ".join(prices)))
 
         # NOT queries are expensive, thus providing information in both forms
-        tags.append(u'»removed' if item.removed else u'»active')
+        tags.append('removed' if item.removed else 'active')
 
-        fields.append(search.TextField('tags', " ".join(tags)))
+        fields += [search.AtomField('tags', "tag:%s" % t) for t in tags]
 
         return fields, facets
 
