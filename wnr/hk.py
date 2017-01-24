@@ -93,6 +93,12 @@ def scrape_page(url_type, url, cookies):
             if not ent.removed:
                 ent.removed = now
                 ent.put()
+                if isinstance(ent, Item):
+                    deferred.defer(index_items,
+                                   [ent.key],
+                                   _transactional=True,
+                                   _queue='indexing',
+                                   _countdown=2)
                 logging.warn("%r: flagged removed" % ent.key)
 
         for key in keys:
@@ -124,11 +130,13 @@ def scrape_page(url_type, url, cookies):
                 redir = rs.headers['Location']
                 logging.warn("%d for %s: %s" % (rs.status_code, url, redir))
                 if redir == url[:-1]:
-                    url = url[:-1]
+                    url = redir
                 else:
                     set_removed(url)
+                    break
             elif rs.status_code == 404 and retries > 3:
                 set_removed(url)
+                break
             else:
                 raise taskqueue.TransientError(
                           "%d for %s\nBody:\n%s\n\nHeaders:\n%r"
@@ -147,6 +155,7 @@ def scrape_page(url_type, url, cookies):
                 url = redir
             elif rs.status_code == 404 and retries > 3:
                 set_removed(url)
+                break
             else:
                 raise taskqueue.TransientError(
                           "%d for %s" % (rs.status_code, url))

@@ -67,6 +67,12 @@ class ItemView(object):
             self.added = added.strftime("%b %d")
 
         try:
+            doc.field('removed')
+            self.removed = True
+        except ValueError:
+            self.removed = False
+
+        try:
             prices = doc.field('price_history').value
         except ValueError:
             self.price = "(price not available)"

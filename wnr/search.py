@@ -111,8 +111,12 @@ def index_items(item_keys):
             prices = map(format_history_price, prices)
             fields.append(search.TextField('price_history', " ".join(prices)))
 
-        # NOT queries are expensive, thus providing information in both forms
-        tags.append('removed' if item.removed else 'active')
+        if item.removed:
+            fields.append(search.NumberField('removed', to_unix(item.removed)))
+            tags.append('removed')
+        else:
+            # NOT queries are expensive, thus providing information in both forms
+            tags.append('active')
 
         fields += [search.AtomField('tags', "#%s" % t) for t in tags]
 
@@ -122,9 +126,7 @@ def index_items(item_keys):
     for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
         doc_id = "%s:%s" % (item_key.parent().id(),
                             item_key.id().replace(" ", "-"))
-        if not item or item.removed:
-            dels.append(doc_id)
-        else:
+        if item:
             fields, facets = item_data(item)
             adds.append(search.Document(
                 doc_id=doc_id,
@@ -133,6 +135,8 @@ def index_items(item_keys):
                 language='en',
                 # global sort by latest-ness
                 rank=to_unix(item.added)))
+        else:
+            dels.append(doc_id)
 
     index = search.Index(ITEMS_INDEX)
     if adds:

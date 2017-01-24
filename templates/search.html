@@ -9,6 +9,11 @@
 	margin-bottom: 10px;
 }
 
+.removed h4, .removed h4 a {
+	text-decoration: line-through;
+	color: #c0c0c0;
+}
+
 span.label-hk {
 	background-color: #ff8f00;
 	color: white;
@@ -53,7 +58,7 @@ span.label-hk {
 
 	<div class="row">
 		{% for item in items %}
-		<div class="col-sm-6 col-md-3 search-result">
+		<div class="col-sm-6 col-md-3 search-result{% if item.removed %} removed{% endif %}">
 			<div class="thumbnail">
 				<img src="{{ item.photo_url }}" alt="{{ item.title }}">
 				<div class="caption">
