@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
 import os
@@ -21,6 +21,17 @@ _store = store_info('hk', "HobbyKing")
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
 ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
+
+
+def reindex_latest():
+    span = datetime.utcnow() - timedelta(days=3)
+    query = Item.query().filter(Item.added > span)
+    urls = [item.url for item in query.iter(batch_size=50)]
+    logging.info("Queuing %d items" % len(urls))
+    new_run = ScrapeQueue.initialize(_store.id, skip_indexed=False)
+    ScrapeQueue.queue(_store.id, items=urls)
+    if new_run:
+        deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
 def trigger(rq):
@@ -225,13 +236,13 @@ def scrape_item(url, html):
                         % (url, _url)
     assert image
 
-    def img_alt():
-        title = re.search(r'itemprop="image"[^>]+alt="(.+?)"', html, re.DOTALL)
+    def parse_title():
+        title = re.search(r"<title>(.+?)</title>", html, re.DOTALL)
         if title:
             return h.unescape(title.group(1)).strip()
 
     # title isn't encoded properly in og props; priorize alternate source
-    title = img_alt() or title
+    title = parse_title() or title
     assert title, "Failed to parse title"
 
     fields = {'image': image,
