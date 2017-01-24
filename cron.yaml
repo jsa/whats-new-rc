@@ -5,11 +5,16 @@ cron:
 #  schedule: every 10 minutes synchronized
 
 - description: Crawl new HobbyKing items
-  url: /_hk/scrape
+  url: /_hk/scan-site
   schedule: every mon,tue,wed,thu,fri 9:00
   timezone: Europe/Helsinki
 
 - description: Full HobbyKing crawl
-  url: /_hk/scrape?rescan
-  schedule: every sat 2:00
+  url: /_hk/scan-site?rescan
+  schedule: 1st, 3rd sat 2:00
+  timezone: Europe/Helsinki
+
+- description: Scan for removed items
+  url: /_hk/scan-table
+  schedule: 2nd, 4th sat 2:00
   timezone: Europe/Helsinki

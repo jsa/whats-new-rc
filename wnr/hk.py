@@ -11,7 +11,8 @@ from HTMLParser import HTMLParser
 import webapp2
 
 from . import store_info
-from .models import Category, Item, PAGE_TYPE, Price, ScrapeQueue, Store
+from .models import (
+    Category, Item, PAGE_TYPE, Price, ScrapeJob, SiteScan, Store, TableScan)
 from .search import index_items
 from .util import cacheize, get, nub, ok_resp
 
@@ -25,25 +26,34 @@ ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
 
 def reindex_latest():
     span = datetime.utcnow() - timedelta(days=3)
-    query = Item.query().filter(Item.added > span)
-    urls = [item.url for item in query.iter(batch_size=50)]
+    query = Item.query(Item.added > span)
+    urls = [item.url for item in query.iter(batch_size=500,
+                                            projection=[Item.url])]
     logging.info("Queuing %d items" % len(urls))
-    new_run = ScrapeQueue.initialize(_store.id, skip_indexed=False)
-    ScrapeQueue.queue(_store.id, items=urls)
+    new_run = SiteScan.initialize(_store.id, skip_indexed=False)
+    SiteScan.queue(_store.id, items=urls)
     if new_run:
         deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
-def trigger(rq):
+def trigger_site_scan(rq):
     deferred.defer(queue_categories,
                    rescan='rescan' in rq.GET,
                    _queue='scrape')
     return webapp2.Response()
 
 
-def queue_categories(rescan=False):
-    assert ScrapeQueue.initialize(_store.id, skip_indexed=not rescan), \
+def trigger_table_scan(rq):
+    assert TableScan.initialize(_store.id), \
         "Previous crawl still in progress"
+    deferred.defer(process_queue, _queue='scrape')
+    return webapp2.Response()
+
+
+def queue_categories(rescan=False):
+    if not SiteScan.initialize(_store.id, skip_indexed=not rescan):
+        logging.warn("Previous crawl still in progress")
+        return
 
     rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
                                 deadline=60))
@@ -58,7 +68,7 @@ def queue_categories(rescan=False):
     assert len(urls) > 100, "Found only %d category URLs" % len(urls)
 
     logging.debug("Found %d categories" % len(urls))
-    ScrapeQueue.queue(_store.id, categories=urls)
+    SiteScan.queue(_store.id, categories=urls)
     deferred.defer(process_queue, _queue='scrape', _countdown=2)
 
 
@@ -67,13 +77,7 @@ def cookie_value(cookies):
                      for cookie in cookies.itervalues())
 
 
-def process_queue():
-    queue_url, url_type, cookies = ScrapeQueue.peek(_store.id)
-    if not queue_url:
-        return
-
-    retries = int(os.getenv('HTTP_X_APPENGINE_TASKRETRYCOUNT', 0))
-
+def scrape_page(url_type, url, cookies):
     @ndb.transactional
     def set_removed(keys):
         now, mod = datetime.utcnow(), []
@@ -85,8 +89,8 @@ def process_queue():
             ndb.put_multi(mod)
             logging.warn("Flagged removed: %r" % [o.key for o in mod])
 
-    url, headers = queue_url, {}
-    logging.info("Scraping %r" % url)
+    retries = int(os.getenv('HTTP_X_APPENGINE_TASKRETRYCOUNT', 0))
+    headers = {}
 
     while True:
         if cookies:
@@ -100,7 +104,6 @@ def process_queue():
         cookie = rs.headers.get('Set-Cookie')
         if cookie:
             cookies.load(cookie)
-            ScrapeQueue.save_cookies(_store.id, cookies)
 
         content = rs.content.decode('utf-8')
 
@@ -144,8 +147,41 @@ def process_queue():
         else:
             raise ValueError("Unknown URL type %r" % (url_type,))
 
-    ScrapeQueue.pop(_store.id, queue_url)
-    deferred.defer(process_queue, _queue='scrape', _countdown=2)
+
+def process_table_scan():
+    job = ndb.Key(TableScan, _store.id).get()
+    if not isinstance(job, TableScan):
+        return False
+    item = job.marker.get()
+    cookies = job.get_cookies()
+    scrape_page(PAGE_TYPE.ITEM, item.url, cookies)
+    marker = Item.query(Item.key > item.key) \
+                 .order(Item.key) \
+                 .get(keys_only=True)
+    logging.debug("Table scan advance %r -> %r" % (item.key, marker))
+    if marker and marker.parent() == item.key.parent():
+        TableScan.advance(_store.id, marker, cookies)
+    else:
+        TableScan.advance(_store.id, None, cookies)
+    return True
+
+
+def process_site_scan():
+    queue_url, url_type, cookies = SiteScan.peek(_store.id)
+    if not queue_url:
+        return False
+
+    logging.info("Scraping %r" % queue_url)
+    scrape_page(url_type, queue_url, cookies)
+    SiteScan.pop(_store.id, queue_url, cookies)
+    return True
+
+
+def process_queue():
+    if process_table_scan() or process_site_scan():
+        deferred.defer(process_queue, _queue='scrape', _countdown=2)
+    else:
+        logging.info("Scrape finished")
 
 
 def scrape_category(url, html):
@@ -169,7 +205,7 @@ def scrape_category(url, html):
                       % (len(sub_cats), "\n".join(sub_cats)))
         cat_urls += sub_cats
 
-    ScrapeQueue.queue(_store.id, categories=cat_urls, items=item_urls)
+    SiteScan.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
 @cacheize(60 * 60)
@@ -319,8 +355,8 @@ def scrape_item(url, html):
 
 
 def proxy(rq):
-    queue = ndb.Key(ScrapeQueue, _store.id).get()
     headers = {}
+    queue = ndb.Key(ScrapeJob, _store.id).get()
     if queue:
         cookies = queue.get_cookies()
         if cookies:
@@ -330,15 +366,12 @@ def proxy(rq):
                         headers=headers,
                         follow_redirects=False,
                         deadline=60)
-    cookie = rs.headers.get('Set-Cookie')
-    if cookie:
-        cookies.load(cookie)
-        ScrapeQueue.save_cookies(_store.id, cookies)
 
     return webapp2.Response(rs.content, rs.status_code)
 
 
 routes = [
     get(r"/proxy.html", proxy),
-    get(r"/scrape", trigger),
+    get(r"/scan-site", trigger_site_scan),
+    get(r"/scan-table", trigger_table_scan),
 ]
