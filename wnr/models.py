@@ -220,10 +220,19 @@ class SiteScan(ScrapeJob):
                            ancestor=store_key) \
                     .order(Item.url)
         indexed = self.get_bloom(None)
-        for item in query.iter(batch_size=500,
-                               projection=[Item.url]):
-            assert item.url
-            indexed.add(self.salt_url(item.url))
+        # results in timeout without this kind of manual batch fetching
+        batch = None
+        while True:
+            if batch:
+                q = query.filter(Item.url > batch[-1].url)
+            else:
+                q = query
+            batch = q.fetch(1000, projection=[Item.url])
+            if not batch:
+                break
+            for item in batch:
+                assert item.url
+                indexed.add(self.salt_url(item.url))
         return indexed
 
     def salt_url(self, url):
