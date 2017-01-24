@@ -78,16 +78,25 @@ def cookie_value(cookies):
 
 
 def scrape_page(url_type, url, cookies):
-    @ndb.transactional
-    def set_removed(keys):
-        now, mod = datetime.utcnow(), []
-        for obj in ndb.get_multi(keys):
-            if not obj.removed:
-                obj.removed = now
-                mod.append(obj)
-        if mod:
-            ndb.put_multi(mod)
-            logging.warn("Flagged removed: %r" % [o.key for o in mod])
+    def set_removed(url):
+        queries = [Item.query(Item.url == url),
+                   Category.query(Category.url == url)]
+        keys = []
+        for query in queries:
+            keys += query.fetch(keys_only=True)
+
+        now = datetime.utcnow()
+
+        @ndb.transactional
+        def tx(key):
+            ent = key.get()
+            if not ent.removed:
+                ent.removed = now
+                ent.put()
+                logging.warn("%r: flagged removed" % ent.key)
+
+        for key in keys:
+            tx(key)
 
     retries = int(os.getenv('HTTP_X_APPENGINE_TASKRETRYCOUNT', 0))
     headers = {}
@@ -113,13 +122,13 @@ def scrape_page(url_type, url, cookies):
                 break
             elif rs.status_code in (301, 302):
                 redir = rs.headers['Location']
-                assert redir == url[:-1], \
-                    "%d for %s: %s" % (rs.status_code, url, redir)
-                url = url[:-1]
+                logging.warn("%d for %s: %s" % (rs.status_code, url, redir))
+                if redir == url[:-1]:
+                    url = url[:-1]
+                else:
+                    set_removed(url)
             elif rs.status_code == 404 and retries > 3:
-                keys = Item.query(Item.url == url) \
-                           .fetch(keys_only=True)
-                set_removed(keys)
+                set_removed(url)
             else:
                 raise taskqueue.TransientError(
                           "%d for %s\nBody:\n%s\n\nHeaders:\n%r"
@@ -137,9 +146,7 @@ def scrape_page(url_type, url, cookies):
                 logging.warn("Category redirect %s -> %s" % (url, redir))
                 url = redir
             elif rs.status_code == 404 and retries > 3:
-                keys = Category.query(Category.url == url) \
-                               .fetch(keys_only=True)
-                set_removed(keys)
+                set_removed(url)
             else:
                 raise taskqueue.TransientError(
                           "%d for %s" % (rs.status_code, url))
