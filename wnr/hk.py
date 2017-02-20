@@ -348,7 +348,7 @@ def scrape_item(url, html):
             p = Price.query(ancestor=item.key) \
                      .order(-Price.timestamp) \
                      .get()
-            if (p.currency, p.cents) != price:
+            if not (p and (p.currency, p.cents) == price):
                 puts.append(Price(parent=item.key,
                                   currency=price[0],
                                   cents=price[1]))
