@@ -265,7 +265,9 @@ def scrape_item(url, html):
     logging.debug("itemprop: %r\nog:%r" % (props, og))
 
     sku = props.get('sku')
-    assert sku, "Couldn't find SKU"
+    if not sku:
+        logging.warn("%s: couldn't find SKU" % url)
+        return
 
     cur = props.get('priceCurrency')
     if cur:
