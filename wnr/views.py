@@ -312,21 +312,6 @@ def item_counts(cat_id):
     return counts
 
 
-@cacheize(60 * 60)
-def empty_categories(store_id):
-    index = g_search.Index(ITEMS_INDEX)
-    opts = g_search.QueryOptions(limit=1,
-                                 number_found_accuracy=1,
-                                 ids_only=True)
-
-    def is_empty(cat_id):
-        rs = index.search(g_search.Query('categories:"%d"' % cat_id, opts),
-                          deadline=10)
-        return not rs.results
-
-    return set(filter(is_empty, read_categories(store_id).iterkeys()))
-
-
 def batches(itr, batch_size):
     b = []
     for e in itr:
@@ -336,6 +321,34 @@ def batches(itr, batch_size):
             b = []
     if b:
         yield b
+
+
+@cacheize(60 * 60)
+def empty_categories(store_id):
+    index = g_search.Index(ITEMS_INDEX)
+    opts = g_search.QueryOptions(limit=1,
+                                 number_found_accuracy=1,
+                                 ids_only=True)
+    empty_ids = set()
+
+    def filter_empty(cat_ids):
+        for cat_id in cat_ids:
+            rs = index.search(g_search.Query('categories:"%d"' % cat_id, opts),
+                              deadline=10)
+            if not rs.results:
+                empty_ids.add(cat_id)
+
+    cat_ids = read_categories(store_id).keys()
+    threads = []
+    # make around ten batches
+    for batch in batches(cat_ids, len(cat_ids) / 9):
+        t = threading.Thread(target=filter_empty, args=[batch])
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()
+
+    return empty_ids
 
 
 @cache(30)
@@ -355,21 +368,10 @@ def categories(rq, store):
                         cats)
         return sorted(childs, key=lambda c: c[1][0])
 
-    counts = {}
-
-    def counts_batch(batch):
-        for c_id, c_info in batch:
-            counts.update(item_counts(c_id))
-
     root = children([None])
-    threads = []
-    # make around ten batches
-    for batch in batches(root, len(root) / 9):
-        t = threading.Thread(target=counts_batch, args=[batch])
-        t.start()
-        threads.append(t)
-    for t in threads:
-        t.join()
+    counts = {}
+    for c_id, c_info in root:
+        counts.update(item_counts(c_id))
 
     def expand(path, (title, parent_id)):
         return {
