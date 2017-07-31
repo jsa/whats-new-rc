@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import logging
 import re
+import threading
 import time
 import urllib
 
@@ -326,6 +327,17 @@ def empty_categories(store_id):
     return set(filter(is_empty, read_categories(store_id).iterkeys()))
 
 
+def batches(itr, batch_size):
+    b = []
+    for e in itr:
+        b.append(e)
+        if len(b) == batch_size:
+            yield b
+            b = []
+    if b:
+        yield b
+
+
 @cache(30)
 def categories(rq, store):
     store_info = get_stores().get(store)
@@ -343,6 +355,22 @@ def categories(rq, store):
                         cats)
         return sorted(childs, key=lambda c: c[1][0])
 
+    counts = {}
+
+    def counts_batch(batch):
+        for c_id, c_info in batch:
+            counts.update(item_counts(c_id))
+
+    root = children([None])
+    threads = []
+    # make around ten batches
+    for batch in batches(root, len(root) / 9):
+        t = threading.Thread(target=counts_batch, args=[batch])
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()
+
     def expand(path, (title, parent_id)):
         return {
             'id': path[-1],
@@ -351,12 +379,7 @@ def categories(rq, store):
                          for c in children(path)],
         }
 
-    root = children([None])
     tree = [expand([c[0]], c[1]) for c in root]
-
-    counts = {}
-    for c_id, c_info in root:
-        counts.update(item_counts(c_id))
 
     def add_counts(cat):
         cat['item_count'] = counts.get(cat['id'])
