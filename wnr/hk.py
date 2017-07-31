@@ -336,10 +336,9 @@ def scrape_item(url, html):
               'removed': None}
 
     cat_html = html.split('class="breadcrumbsPos"', 1)[1] \
-                   .rsplit('class="breadcrumbsPos"', 1)
-    if len(cat_html) == 2:
-        cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html[0])
-        assert cats
+                   .split('</ul>', 1)[0]
+    cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html)
+    if cats:
         assert len(cats) < 10 \
                and not any("<" in name for url, name in cats), \
             "Category scraping probably failed:\n%s" % (cats,)
@@ -349,7 +348,6 @@ def scrape_item(url, html):
                                   for url, name in cats))
         cat_keys = save_cats(cats)
     else:
-        assert len(cat_html) == 1
         logging.warn("Couldn't find any categories")
         cat_keys = []
 
