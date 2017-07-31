@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+import json
 import logging
 import os
 import re
@@ -264,12 +265,13 @@ def scrape_item(url, html):
         if cur:
             # just counting on the first entry to match... (which seems to
             # be the main item)
-            prod = re.search(r'oro_gtm.regProduct\((\d+),\{.+,"id":"(.+?)",.+,"price":(.+?)\}\);', html)
+            prod = re.search(r'oro_gtm.regProduct\((\d+),(\{.+\})\);', html)
             if prod:
+                data = json.loads(prod.group(2))
                 return {
                     'id': int(prod.group(1)),
-                    'sku': prod.group(2),
-                    'price': (cur.group(1), Decimal(prod.group(3))),
+                    'sku': data['id'],
+                    'price': (cur.group(1), Decimal(data['price'])),
                 }
         logging.warn("Failed to parse Oro data")
 
@@ -296,7 +298,7 @@ def scrape_item(url, html):
             return cur, Decimal(props['price'])
 
     def g_params_price():
-        g_params = re.search(r'google_tag_params = *{(.*?)}', html, re.DOTALL)
+        g_params = re.search(r'google_tag_params = *\{(.*?)\}', html, re.DOTALL)
         if g_params:
             usd = re.search(r"value: '(.+?)'", g_params.group(1)).group(1)
             logging.debug("google_tag_params: %s, usd: %s"
