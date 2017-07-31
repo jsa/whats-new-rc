@@ -259,19 +259,35 @@ def save_cats(path):
 def scrape_item(url, html):
     h = HTMLParser()
 
+    def parse_oro():
+        cur = re.search(r'oroGTM\(\'gtm\',\{"id":".+?","currency":"(.+?)"', html)
+        if cur:
+            # just counting on the first entry to match... (which seems to
+            # be the main item)
+            prod = re.search(r'oro_gtm.regProduct\((\d+),\{.+,"id":"(.+?)",.+,"price":(.+?)\}\);', html)
+            if prod:
+                return {
+                    'id': int(prod.group(1)),
+                    'sku': prod.group(2),
+                    'price': (cur.group(1), Decimal(prod.group(3))),
+                }
+        logging.warn("Failed to parse Oro data")
+
     props = dict(itemprop.findall(html))
+    oro = parse_oro()
     og = dict(ogprop.findall(html))
+    logging.debug("itemprop: %r\noro: %r\nog: %r" % (props, oro, og))
 
-    logging.debug("itemprop: %r\nog:%r" % (props, og))
-
-    sku = props.get('sku')
-    if not sku:
-        sku = re.search(r'data-product-sku *= *"(.+?)"', html)
+    def button_sku():
+        sku = re.search(r'<button type="submit" id="btn-sticky-bar-.+?" title="Buy now" class="button btn-cart" data-product-sku *= *"(.+?)"', html)
         if sku:
-            sku = sku.group(1)
-    if not sku:
-        logging.warn("Couldn't find SKU")
-        return
+            return sku.group(1)
+
+    skus = {props.get('sku'), button_sku()} - {None}
+    if oro:
+        skus.add(oro['sku'])
+    assert len(skus) == 1, "Found %d SKUs: %r" % (len(skus), skus)
+    sku = skus.pop()
 
     def props_price():
         cur = props.get('priceCurrency')
@@ -288,18 +304,7 @@ def scrape_item(url, html):
         else:
             logging.warn("Couldn't find google_tag_params")
 
-    def oro_gtm_price():
-        cur = re.search(r'oroGTM\(\'gtm\',\{"id":".+?","currency":"(.+?)"', html)
-        if cur:
-            # just counting on the first entry to match... (which seems to
-            # be the main item)
-            amt = re.search(r'oro_gtm.regProduct\(\d+,\{.+,"price":(.+?)\}\);', html)
-            if amt:
-                return cur.group(1), Decimal(amt.group(1))
-        logging.warn("Couldn't find price from oroGTM")
-
-    price = props_price() or g_params_price() or oro_gtm_price()
-
+    price = props_price() or g_params_price() or (oro and oro['price'])
     if not (price and price[1] > 0):
         logging.warn("Failed to find an appropriate price: %r" % (price,))
         price = None
@@ -359,6 +364,9 @@ def scrape_item(url, html):
                 yield int(prod_id)
             except ValueError as e:
                 logging.warn(e, exc_info=True)
+
+        if oro:
+            yield oro['id']
 
     pids = set(prod_ids())
     if len(pids) == 1:
