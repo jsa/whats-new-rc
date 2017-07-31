@@ -93,8 +93,17 @@ def index_items(item_keys):
                   search.NumberField('added', to_unix(item.added)),
                   search.NumberField('checked', to_unix(item.checked))]
 
-        tags, facets = [], []
+        if item.custom:
+            custom = set()
+            for val in item.custom.itervalues():
+                if isinstance(val, basestring):
+                    custom.add(val)
+                elif isinstance(val, (int, long)):
+                    custom.add(str(val))
+            if custom:
+                fields.append(search.TextField('custom', " ".join(sorted(custom))))
 
+        facets = []
         if item.category:
             id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
             if id_path:
@@ -111,6 +120,7 @@ def index_items(item_keys):
             prices = map(format_history_price, prices)
             fields.append(search.TextField('price_history', " ".join(prices)))
 
+        tags = []
         if item.removed:
             fields.append(search.NumberField('removed', to_unix(item.removed)))
             tags.append('removed')

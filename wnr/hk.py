@@ -266,23 +266,46 @@ def scrape_item(url, html):
 
     sku = props.get('sku')
     if not sku:
-        logging.warn("%s: couldn't find SKU" % url)
+        sku = re.search(r'data-product-sku *= *"(.+?)"', html)
+        if sku:
+            sku = sku.group(1)
+    if not sku:
+        logging.warn("Couldn't find SKU")
         return
 
-    cur = props.get('priceCurrency')
-    if cur:
-        price = cur, int(Decimal(props['price']) * 100)
-    else:
-        g_params = re.search(r'google_tag_params = *{(.*?)}', html, re.DOTALL)
-        assert g_params
-        usd = re.search(r"value: '(.+?)'", g_params.group(1)).group(1)
-        logging.debug("google_tag_params: %s, usd: %s"
-                      % (g_params.group(1), usd))
-        price = 'USD', int(Decimal(usd) * 100)
+    def props_price():
+        cur = props.get('priceCurrency')
+        if cur:
+            return cur, Decimal(props['price'])
 
-    if not price[1] > 0:
+    def g_params_price():
+        g_params = re.search(r'google_tag_params = *{(.*?)}', html, re.DOTALL)
+        if g_params:
+            usd = re.search(r"value: '(.+?)'", g_params.group(1)).group(1)
+            logging.debug("google_tag_params: %s, usd: %s"
+                          % (g_params.group(1), usd))
+            return 'USD', Decimal(usd)
+        else:
+            logging.warn("Couldn't find google_tag_params")
+
+    def oro_gtm_price():
+        cur = re.search(r'oroGTM\(\'gtm\',\{"id":".+?","currency":"(.+?)"', html)
+        if cur:
+            # just counting on the first entry to match... (which seems to
+            # be the main item)
+            amt = re.search(r'oro_gtm.regProduct\(\d+,\{.+,"price":(.+?)\}\);', html)
+            if amt:
+                return cur.group(1), Decimal(amt.group(1))
+        logging.warn("Couldn't find price from oroGTM")
+
+    price = props_price() or g_params_price() or oro_gtm_price()
+
+    if not (price and price[1] > 0):
         logging.warn("Failed to find an appropriate price: %r" % (price,))
         price = None
+    else:
+        # convert amount to cents
+        price = price[0], int(price[1] * 100)
 
     image, title, typ, _url = map(og.get, ('image', 'title', 'type', 'url'))
     assert typ == "product", "Unexpected type %r" % typ
@@ -326,6 +349,12 @@ def scrape_item(url, html):
 
     def prod_ids():
         for prod_id in re.findall(r"product_value = (\d+);", html):
+            try:
+                yield int(prod_id)
+            except ValueError as e:
+                logging.warn(e, exc_info=True)
+
+        for prod_id in re.findall(r'<input type="hidden" name="product" value="(\d+)"', html):
             try:
                 yield int(prod_id)
             except ValueError as e:
