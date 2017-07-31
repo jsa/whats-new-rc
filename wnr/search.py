@@ -7,6 +7,7 @@ from urllib import urlencode
 
 from google.appengine.api import search, urlfetch
 from google.appengine.ext import deferred, ndb
+from google.appengine.ext.ndb import query
 
 from .models import Item, Price
 from .util import cacheize, ok_resp
@@ -134,8 +135,12 @@ def index_items(item_keys):
 
     adds, dels = [], []
     for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
+        iid = item_key.string_id()
+        if not iid:
+            # ignore, not indexed
+            continue
         doc_id = "%s:%s" % (item_key.parent().id(),
-                            item_key.id().replace(" ", "-"))
+                            iid.replace(" ", "-"))
         if item:
             fields, facets = item_data(item)
             adds.append(search.Document(
@@ -168,6 +173,14 @@ def reindex_items(cursor=None):
                                     start_cursor=cursor)
         if not keys:
             break
+
+        ints = filter(lambda k: k.integer_id(), keys)
+        if ints:
+            logging.warn("Encountered %d integer Item IDs: %r"
+                         % (len(ints), ints))
+            deferred.defer(delete_items, item_keys=ints)
+            keys = set(keys) - set(ints)
+
         index_items(keys)
         if not (cursor and more):
             break
@@ -177,3 +190,20 @@ def reindex_items(cursor=None):
                            _queue='indexing')
             return
     logging.info("All items reindexed")
+
+
+def delete_items(item_keys):
+    assert all(k.integer_id() for k in item_keys)
+
+    @ndb.transactional
+    def del_item(ikey):
+        if not ikey.get():
+            # already deleted
+            return
+        prices = Price.query(ancestor=ikey) \
+                      .fetch(query._MAX_LIMIT, keys_only=True)
+        ndb.delete_multi([ikey] + prices)
+        logging.debug("Deleted %r" % ikey)
+
+    for ikey in item_keys:
+        del_item(ikey)

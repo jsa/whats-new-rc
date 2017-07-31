@@ -288,6 +288,7 @@ def scrape_item(url, html):
         skus.add(oro['sku'])
     assert len(skus) == 1, "Found %d SKUs: %r" % (len(skus), skus)
     sku = skus.pop()
+    assert isinstance(sku, basestring), "Invalid SKU: %r" % (sku,)
 
     def props_price():
         cur = props.get('priceCurrency')
