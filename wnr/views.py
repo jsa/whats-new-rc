@@ -77,15 +77,13 @@ class ItemView(object):
             prices = doc.field('price_history').value
         except ValueError:
             self.price = "(price not available)"
-            pass
         else:
             ts, cur, amt = parse_history_price(prices.split(" ")[0])
             self.price = format_price(cur, amt)
 
         try:
             cats = doc.field('categories').value
-        except ValueError as e:
-            logging.warn(e, exc_info=True)
+        except ValueError:
             self.category_path = []
         else:
             cat_ids = map(int, cats.split(" "))
