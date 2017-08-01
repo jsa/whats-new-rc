@@ -264,16 +264,13 @@ def scrape_item(url, html):
         if cur:
             # just counting on the first entry to match... (which seems to
             # be the main item)
-            prod = re.search(r'oro_gtm.regProduct\((\d+),(\{.+\})\);', html)
+            prod = re.search(r"oro_gtm.regProduct\((\d+),(\{.+\})\);", html)
             if prod:
-                data = json.loads(prod.group(2))
-                # need to scrape price directly to avoid float issues
-                price = re.search(r'"price":(.+?)}', prod.group(2)) \
-                          .group(1)
+                data = json.loads(prod.group(2), parse_float=Decimal)
                 return {
                     'id': int(prod.group(1)),
                     'sku': data['id'],
-                    'price': (cur.group(1), Decimal(price)),
+                    'price': (cur.group(1), data['price']),
                 }
         logging.warn("Failed to parse Oro data")
 
