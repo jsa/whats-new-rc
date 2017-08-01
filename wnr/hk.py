@@ -122,14 +122,13 @@ def scrape_page(url_type, url, cookies):
             cookies.load(cookie)
 
         content = rs.content.decode('utf-8')
-
         if url_type == PAGE_TYPE.ITEM:
             if rs.status_code == 200:
                 scrape_item(url, content)
                 break
             elif rs.status_code in (301, 302):
                 redir = rs.headers['Location']
-                logging.warn("%d for %s: %s" % (rs.status_code, url, redir))
+                logging.warn("Redir (%d) %s -> %s" % (rs.status_code, url, redir))
                 if redir == url[:-1]:
                     url = redir
                 else:
@@ -268,10 +267,13 @@ def scrape_item(url, html):
             prod = re.search(r'oro_gtm.regProduct\((\d+),(\{.+\})\);', html)
             if prod:
                 data = json.loads(prod.group(2))
+                # need to scrape price directly to avoid float issues
+                price = re.search(r'"price":(.+?)}', prod.group(2)) \
+                          .group(1)
                 return {
                     'id': int(prod.group(1)),
                     'sku': data['id'],
-                    'price': (cur.group(1), Decimal(data['price'])),
+                    'price': (cur.group(1), Decimal(price)),
                 }
         logging.warn("Failed to parse Oro data")
 
