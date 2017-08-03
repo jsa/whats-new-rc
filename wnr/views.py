@@ -26,11 +26,6 @@ def about(rq):
     return render("about.html")
 
 
-def cache_categories(rq):
-    read_categories(_refresh=True)
-    return webapp2.Response()
-
-
 def format_price(cur, amt):
     cur = {
         "AUD": "AU$",
@@ -285,11 +280,11 @@ def item_counts(cat_id):
                  discovery_value_limit=g_search.MAXIMUM_FACET_VALUES_TO_RETURN,
                  depth=found_limit)
     index = g_search.Index(ITEMS_INDEX)
-    rs = index.search(g_search.Query('categories:"%d"' % cat_id,
-                                     opts,
-                                     return_facets=['category'],
-                                     facet_options=f_opts),
-                      deadline=10)
+    query = g_search.Query('categories:"%d" tags:"#active"' % cat_id,
+                           opts,
+                           return_facets=['category'],
+                           facet_options=f_opts)
+    rs = index.search(query, deadline=10)
     if rs.facets:
         assert len(rs.facets) == 1
         cat_counts = rs.facets[0]
@@ -321,7 +316,7 @@ def batches(itr, batch_size):
         yield b
 
 
-@cacheize(60 * 60)
+@cacheize(125 * 60)
 def empty_categories(store_id):
     index = g_search.Index(ITEMS_INDEX)
     opts = g_search.QueryOptions(limit=1,
@@ -329,27 +324,29 @@ def empty_categories(store_id):
                                  ids_only=True)
     empty_ids = set()
 
-    def filter_empty(cat_ids):
+    def filter_empty(cat_ids, flag):
         for cat_id in cat_ids:
-            rs = index.search(g_search.Query('categories:"%d"' % cat_id, opts),
-                              deadline=10)
+            query = 'categories:"%d" tags:"#active"' % cat_id
+            rs = index.search(g_search.Query(query, opts), deadline=10)
             if not rs.results:
                 empty_ids.add(cat_id)
+        flag.set()
 
     cat_ids = read_categories(store_id).keys()
-    threads = []
-    # make around ten batches
-    for batch in batches(cat_ids, len(cat_ids) / 9):
-        t = threading.Thread(target=filter_empty, args=[batch])
+    flags = []
+    # make around 12 batches
+    for batch in batches(cat_ids, len(cat_ids) / 11):
+        flag = threading.Event()
+        t = threading.Thread(target=filter_empty, args=[batch, flag])
         t.start()
-        threads.append(t)
-    for t in threads:
-        t.join()
+        flags.append(flag)
+    for flag in flags:
+        flag.wait()
 
     return empty_ids
 
 
-@cache(30)
+@cache(5 * 60)
 def categories(rq, store):
     store_info = get_stores().get(store)
     if not store_info:
@@ -368,12 +365,6 @@ def categories(rq, store):
                         cats)
         return sorted(childs, key=lambda c: c[1][0])
 
-    root = children([None])
-    with log_latency("item_counts() {:,d}ms"):
-        counts = {}
-        for c_id, c_info in root:
-            counts.update(item_counts(c_id))
-
     def expand(path, (title, parent_id)):
         return {
             'id': path[-1],
@@ -382,13 +373,17 @@ def categories(rq, store):
                          for c in children(path)],
         }
 
-    tree = [expand([c[0]], c[1]) for c in root]
+    root = children([None])
+    counts = {}
+    for c_id, c_info in root:
+        counts.update(item_counts(c_id))
 
     def add_counts(cat):
         cat['item_count'] = counts.get(cat['id'])
         for cat in cat['children']:
             add_counts(cat)
 
+    tree = [expand([c[0]], c[1]) for c in root]
     for cat in tree:
         add_counts(cat)
 
@@ -398,3 +393,10 @@ def categories(rq, store):
     }
 
     return render("categories.html", ctx)
+
+
+def cache_categories(rq):
+    for store_id in get_stores().iterkeys():
+        empty_categories(store_id, _refresh=True)
+    read_categories(_refresh=True)
+    return webapp2.Response()
