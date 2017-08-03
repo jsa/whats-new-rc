@@ -355,7 +355,9 @@ def categories(rq, store):
     if not store_info:
         return not_found("Unknown store '%s'" % store)
 
-    empty = empty_categories(store)
+    with log_latency("empty_categories(%r) {:,d}ms" % store):
+        empty = empty_categories(store)
+
     cats = filter(lambda (cat_id, cat): cat_id not in empty,
                   read_categories(store).iteritems())
 
@@ -367,9 +369,10 @@ def categories(rq, store):
         return sorted(childs, key=lambda c: c[1][0])
 
     root = children([None])
-    counts = {}
-    for c_id, c_info in root:
-        counts.update(item_counts(c_id))
+    with log_latency("item_counts() {:,d}ms"):
+        counts = {}
+        for c_id, c_info in root:
+            counts.update(item_counts(c_id))
 
     def expand(path, (title, parent_id)):
         return {

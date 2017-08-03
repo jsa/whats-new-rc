@@ -69,12 +69,13 @@ def filter_urls(urls):
 
 
 class ScrapeJob(polymodel.PolyModel):
+    created = ndb.DateTimeProperty(auto_now_add=True)
     modified = ndb.DateTimeProperty(auto_now=True)
     cookies = ndb.JsonProperty()
 
     def set_cookies(self, cookies):
         self.cookies = {cookie.key: cookie.value
-                       for cookie in cookies.itervalues()}
+                        for cookie in cookies.itervalues()}
         logging.debug("%r: updated cookies: %s"
                       % (self.key, self.cookies))
 
@@ -245,7 +246,7 @@ class TableScan(ScrapeJob):
     @classmethod
     def initialize(cls, store_id):
         store_key = ndb.Key(Store, store_id)
-        marker = Item.query(Item.key > store_key) \
+        marker = Item.query(ancestor=store_key) \
                      .order(Item.key) \
                      .get(keys_only=True)
         @ndb.transactional
