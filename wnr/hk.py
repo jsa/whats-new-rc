@@ -25,6 +25,10 @@ itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
 ogprop = re.compile(r'property="og:(.+?)" content="(.+?)"')
 
 
+class NoSKU(Exception):
+    pass
+
+
 def reindex_latest():
     span = datetime.utcnow() - timedelta(days=3)
     query = Item.query(Item.added > span)
@@ -124,7 +128,11 @@ def scrape_page(url_type, url, cookies):
         content = rs.content.decode('utf-8')
         if url_type == PAGE_TYPE.ITEM:
             if rs.status_code == 200:
-                scrape_item(url, content)
+                try:
+                    scrape_item(url, content)
+                except NoSKU:
+                    logging.warn("Item page scraping error", exc_info=True)
+                    set_removed(url)
                 break
             elif rs.status_code in (301, 302):
                 redir = rs.headers['Location']
@@ -290,8 +298,7 @@ def scrape_item(url, html):
     skus.discard(None)
     assert len(skus) < 2, "Found %d SKUs: %r" % (len(skus), skus)
     if not skus:
-        logging.warn("Couldn't find any SKUs")
-        return
+        raise NoSKU
     sku = skus.pop()
     assert isinstance(sku, basestring), "Invalid SKU: %r" % (sku,)
 
