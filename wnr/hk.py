@@ -284,10 +284,14 @@ def scrape_item(url, html):
         if sku:
             return sku.group(1)
 
-    skus = {props.get('sku'), button_sku()} - {None}
+    skus = {props.get('sku'), button_sku()}
     if oro:
         skus.add(oro['sku'])
-    assert len(skus) == 1, "Found %d SKUs: %r" % (len(skus), skus)
+    skus.discard(None)
+    assert len(skus) < 2, "Found %d SKUs: %r" % (len(skus), skus)
+    if not skus:
+        logging.warn("Couldn't find any SKUs")
+        return
     sku = skus.pop()
     assert isinstance(sku, basestring), "Invalid SKU: %r" % (sku,)
 
