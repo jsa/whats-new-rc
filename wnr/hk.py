@@ -345,9 +345,13 @@ def scrape_item(url, html):
               'url': url,
               'removed': None}
 
-    cat_html = html.split('class="breadcrumbsPos"', 1)[1] \
-                   .split('</ul>', 1)[0]
-    cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html)
+    cat_html = html.split('class="breadcrumbsPos"', 1)
+    if len(cat_html) > 1:
+        cat_html = cat_html[1].split('</ul>', 1)[0]
+        cats = re.findall(r'<a href="(.+?)".*?><.+?>(.+?)</', cat_html)
+    else:
+        cats = []
+
     if cats:
         assert len(cats) < 10 \
                and not any("<" in name for url, name in cats), \
