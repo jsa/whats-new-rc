@@ -362,7 +362,7 @@ def scrape_item(url, html):
         cat_keys = save_cats(cats)
     else:
         logging.warn("Couldn't find any categories")
-        cat_keys = save_cats([(_store.url, "No category")])
+        cat_keys = save_cats([(_store.url, "(no category)")])
 
     fields['category'] = cat_keys[-1]
 
