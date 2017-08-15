@@ -287,7 +287,7 @@ class Item(ndb.Model):
     url = ndb.StringProperty(required=True)
     title = ndb.StringProperty(required=True)
     image = ndb.StringProperty(required=True)
-    category = ndb.KeyProperty(kind=Category)
+    category = ndb.KeyProperty(kind=Category, required=True)
     custom = ndb.JsonProperty()
     removed = ndb.DateTimeProperty()
 

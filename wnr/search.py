@@ -167,9 +167,6 @@ def index_items(item_keys):
 def reindex_items(cursor=None):
     start = time.time()
 
-    from .hk import _store, save_cats
-    no_cat = save_cats([(_store.url, "(no category)")])[-1]
-
     while True:
         keys, cursor, more = \
             Item.query().fetch_page(page_size=50,
@@ -178,21 +175,7 @@ def reindex_items(cursor=None):
         if not keys:
             break
 
-        uncats = [i.key for i in ndb.get_multi(keys) if not i.category]
-
-        @ndb.transactional
-        def set_cat(ikey):
-            item = ikey.get()
-            if not item.category:
-                item.category = no_cat
-                item.put()
-
-        #index_items(keys)
-
-        if uncats:
-            for ikey in uncats:
-                set_cat(ikey)
-            index_items(uncats)
+        index_items(keys)
 
         if not (cursor and more):
             break
