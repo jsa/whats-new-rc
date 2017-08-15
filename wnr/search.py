@@ -174,13 +174,6 @@ def reindex_items(cursor=None):
         if not keys:
             break
 
-        ints = filter(lambda k: k.integer_id(), keys)
-        if ints:
-            logging.warn("Encountered %d integer Item IDs: %r"
-                         % (len(ints), ints))
-            deferred.defer(delete_items, item_keys=ints)
-            keys = set(keys) - set(ints)
-
         index_items(keys)
         if not (cursor and more):
             break
@@ -189,6 +182,7 @@ def reindex_items(cursor=None):
                            cursor=cursor,
                            _queue='indexing')
             return
+
     logging.info("All items reindexed")
 
 

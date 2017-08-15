@@ -18,7 +18,7 @@ from .search import index_items
 from .util import cacheize, get, nub, ok_resp
 
 
-_store = store_info('hk', "HobbyKing")
+_store = store_info('hk', "HobbyKing", "https://hobbyking.com/en_us")
 
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
@@ -60,8 +60,7 @@ def queue_categories(rescan=False):
         logging.warn("Previous crawl still in progress")
         return
 
-    rs = ok_resp(urlfetch.fetch("https://hobbyking.com/en_us",
-                                deadline=60))
+    rs = ok_resp(urlfetch.fetch(_store.url, deadline=60))
 
     m = re.search(r'class="mb_new_pro"><a href="(.+?)"', rs.content)
     assert m, "New items URL not found"
@@ -363,9 +362,9 @@ def scrape_item(url, html):
         cat_keys = save_cats(cats)
     else:
         logging.warn("Couldn't find any categories")
-        cat_keys = []
+        cat_keys = save_cats([(_store.url, "No category")])
 
-    fields['category'] = cat_keys[-1] if cat_keys else None
+    fields['category'] = cat_keys[-1]
 
     def prod_ids():
         for prod_id in re.findall(r"product_value = (\d+);", html):
