@@ -316,34 +316,65 @@ def batches(itr, batch_size):
         yield b
 
 
+# @cacheize(125 * 60)
+# def empty_categories(store_id):
+#     index = g_search.Index(ITEMS_INDEX)
+#     opts = g_search.QueryOptions(limit=1,
+#                                  number_found_accuracy=1,
+#                                  ids_only=True)
+#     empty_ids = set()
+# 
+#     def filter_empty(cat_ids, flag):
+#         for cat_id in cat_ids:
+#             query = 'categories:"%d" tags:"#active"' % cat_id
+#             rs = index.search(g_search.Query(query, opts), deadline=10)
+#             if not rs.results:
+#                 empty_ids.add(cat_id)
+#         flag.set()
+# 
+#     cat_ids = read_categories(store_id).keys()
+#     flags = []
+#     # make around 12 batches
+#     for batch in batches(cat_ids, len(cat_ids) / 11):
+#         flag = threading.Event()
+#         t = threading.Thread(target=filter_empty, args=[batch, flag])
+#         t.start()
+#         flags.append(flag)
+#     for flag in flags:
+#         flag.wait()
+# 
+#     return empty_ids
+
+
 @cacheize(125 * 60)
 def empty_categories(store_id):
-    index = g_search.Index(ITEMS_INDEX)
-    opts = g_search.QueryOptions(limit=1,
-                                 number_found_accuracy=1,
-                                 ids_only=True)
-    empty_ids = set()
+    cats, children = set(), {}
+    for cat in Category.query(Category.store == store_id) \
+                       .iter(batch_size=50):
+        cats.add(cat.key)
+        if cat.parent_cat:
+            children.setdefault(cat.parent_cat, set()) \
+                    .add(cat.key)
 
-    def filter_empty(cat_ids, flag):
-        for cat_id in cat_ids:
-            query = 'categories:"%d" tags:"#active"' % cat_id
-            rs = index.search(g_search.Query(query, opts), deadline=10)
-            if not rs.results:
-                empty_ids.add(cat_id)
-        flag.set()
+    def is_empty(cat_key):
+        return Item.query(Item.category == cat_key,
+                          Item.removed == None) \
+                   .count(1) \
+               == 0
 
-    cat_ids = read_categories(store_id).keys()
-    flags = []
-    # make around 12 batches
-    for batch in batches(cat_ids, len(cat_ids) / 11):
-        flag = threading.Event()
-        t = threading.Thread(target=filter_empty, args=[batch, flag])
-        t.start()
-        flags.append(flag)
-    for flag in flags:
-        flag.wait()
+    empty = set()
+    while cats:
+        leaves = {ck for ck in cats if ck not in children}
+        assert leaves
+        empty |= {ck for ck in leaves if is_empty(ck)}
+        cats -= leaves
+        for ck, childs in children.items():
+            childs.difference_update(leaves)
+            if not childs:
+                del children[ck]
 
-    return empty_ids
+    logging.debug("Found %d empty categories" % len(empty))
+    return {k.id() for k in empty}
 
 
 @cache(5 * 60)
@@ -398,5 +429,4 @@ def categories(rq, store):
 def cache_categories(rq):
     for store_id in get_stores().iterkeys():
         empty_categories(store_id, _refresh=True)
-    read_categories(_refresh=True)
     return webapp2.Response()

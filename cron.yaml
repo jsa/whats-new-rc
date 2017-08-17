@@ -1,8 +1,8 @@
 cron:
 
-#- description: Refresh memcached category data
-#  url: /_cron/cache-categories
-#  schedule: every 1 hours synchronized
+- description: Refresh memcached category data
+  url: /_cron/cache-categories
+  schedule: every 2 hours synchronized
 
 - description: Crawl new HobbyKing items
   url: /_hk/scan-site
