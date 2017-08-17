@@ -141,7 +141,7 @@ def scrape_page(url_type, url, cookies):
                 else:
                     set_removed(url)
                     break
-            elif rs.status_code == 404 and retries > 3:
+            elif rs.status_code == 404 and retries > 1:
                 set_removed(url)
                 break
             else:
@@ -160,7 +160,7 @@ def scrape_page(url_type, url, cookies):
                 redir = rs.headers['Location']
                 logging.warn("Category redirect %s -> %s" % (url, redir))
                 url = redir
-            elif rs.status_code == 404 and retries > 3:
+            elif rs.status_code == 404 and retries > 1:
                 set_removed(url)
                 break
             else:
