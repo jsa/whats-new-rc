@@ -2,7 +2,6 @@
 from datetime import datetime, timedelta
 import logging
 import re
-import threading
 import time
 import urllib
 
@@ -316,36 +315,6 @@ def batches(itr, batch_size):
         yield b
 
 
-# @cacheize(125 * 60)
-# def empty_categories(store_id):
-#     index = g_search.Index(ITEMS_INDEX)
-#     opts = g_search.QueryOptions(limit=1,
-#                                  number_found_accuracy=1,
-#                                  ids_only=True)
-#     empty_ids = set()
-# 
-#     def filter_empty(cat_ids, flag):
-#         for cat_id in cat_ids:
-#             query = 'categories:"%d" tags:"#active"' % cat_id
-#             rs = index.search(g_search.Query(query, opts), deadline=10)
-#             if not rs.results:
-#                 empty_ids.add(cat_id)
-#         flag.set()
-# 
-#     cat_ids = read_categories(store_id).keys()
-#     flags = []
-#     # make around 12 batches
-#     for batch in batches(cat_ids, len(cat_ids) / 11):
-#         flag = threading.Event()
-#         t = threading.Thread(target=filter_empty, args=[batch, flag])
-#         t.start()
-#         flags.append(flag)
-#     for flag in flags:
-#         flag.wait()
-# 
-#     return empty_ids
-
-
 @cacheize(125 * 60)
 def empty_categories(store_id):
     cats, children = set(), {}
@@ -356,22 +325,23 @@ def empty_categories(store_id):
             children.setdefault(cat.parent_cat, set()) \
                     .add(cat.key)
 
-    def is_empty(cat_key):
-        return Item.query(Item.category == cat_key,
-                          Item.removed == None) \
-                   .count(1) \
-               == 0
+    nonempty, empty = set(), set()
 
-    empty = set()
+    def is_empty(cat_key):
+        return not any(c in nonempty for c in children.get(cat_key, set())) \
+               and Item.query(Item.category == cat_key,
+                              Item.removed == None) \
+                       .count(1) \
+                   == 0
+
     while cats:
-        leaves = {ck for ck in cats if ck not in children}
+        seen = nonempty | empty
+        leaves = {ck for ck in cats
+                  if children.get(ck, set()) <= seen}
         assert leaves
         empty |= {ck for ck in leaves if is_empty(ck)}
+        nonempty |= leaves - empty
         cats -= leaves
-        for ck, childs in children.items():
-            childs.difference_update(leaves)
-            if not childs:
-                del children[ck]
 
     logging.debug("Found %d empty categories" % len(empty))
     return {k.id() for k in empty}
