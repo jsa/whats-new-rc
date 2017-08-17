@@ -358,33 +358,39 @@ def categories(rq, store):
 
     cats = filter(lambda (cat_id, cat): cat_id not in empty,
                   read_categories(store).iteritems())
+    children = {}
+    for cat in cats:
+        parent_id = cat[1][1]
+        if parent_id:
+            children.setdefault(parent_id, []) \
+                    .append(cat)
 
-    def children(path):
-        childs = filter(lambda (c_id, (title, parent_id)):
-                            c_id not in path
-                            and parent_id == path[-1],
-                        cats)
-        return sorted(childs, key=lambda c: c[1][0])
+    def name_sort(cat):
+        return cat[1][0]
 
-    def expand(path, (title, parent_id)):
+    for childs in children.itervalues():
+        childs.sort(key=name_sort)
+
+    def traverse(cat_id, title):
         return {
-            'id': path[-1],
+            'id': cat_id,
             'title': title,
-            'children': [expand(path + [c[0]], c[1])
-                         for c in children(path)],
+            'children': [traverse(c[0], c[1][0])
+                         for c in children.get(cat_id, [])]
         }
 
-    root = children([None])
+    root = filter(lambda c: not c[1][1], cats)
+    root.sort(key=name_sort)
     counts = {}
-    for c_id, c_info in root:
-        counts.update(item_counts(c_id))
+    for cat_id, cat_info in root:
+        counts.update(item_counts(cat_id))
 
     def add_counts(cat):
         cat['item_count'] = counts.get(cat['id'])
         for cat in cat['children']:
             add_counts(cat)
 
-    tree = [expand([c[0]], c[1]) for c in root]
+    tree = [traverse(c[0], c[1][0]) for c in root]
     for cat in tree:
         add_counts(cat)
 
