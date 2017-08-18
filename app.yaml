@@ -61,5 +61,7 @@ handlers:
   script: main.app
 
 error_handlers:
+- file: error.html
+
 - error_code: over_quota
   file: over-quota.html

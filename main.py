@@ -1,3 +1,5 @@
+import logging
+
 from google.appengine.ext import ndb
 
 import webapp2
@@ -5,7 +7,7 @@ from webapp2_extras import routes
 
 from settings import env
 from wnr import hk, views
-from wnr.util import as_form, GET, get, qset
+from wnr.util import as_form, GET, get, qset, render
 
 
 # disable in-context cache (the newbie helper)
@@ -34,3 +36,11 @@ app = webapp2.WSGIApplication([
     routes.PathPrefixRoute(r"/_hk", hk.routes),
     # get(r"/<store:\w+>", views.store),
 ], debug=False)
+
+def error_page(rq, rs, exc):
+    logging.exception(exc)
+    rs.write(env.get_template("error.html").render())
+    rs.headers['Content-Type'] = "text/html"
+    rs.set_status(500)
+
+app.error_handlers[500] = error_page
