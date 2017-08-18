@@ -315,7 +315,7 @@ def batches(itr, batch_size):
         yield b
 
 
-@cacheize(125 * 60)
+@cacheize(25 * 60 * 60)
 def empty_categories(store_id):
     cats, children = set(), {}
     for cat in Category.query(Category.store == store_id) \
