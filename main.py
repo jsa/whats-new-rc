@@ -7,7 +7,7 @@ from webapp2_extras import routes
 
 from settings import env
 from wnr import hk, views
-from wnr.util import as_form, GET, get, qset, render
+from wnr.util import as_form, GET, get, qset
 
 
 # disable in-context cache (the newbie helper)
@@ -29,7 +29,6 @@ env.filters['as_form'] = as_form
 
 app = webapp2.WSGIApplication([
     get(r"/", views.search),
-    get(r"/_cron/cache-categories", views.cache_categories),
     get(r"/about", views.about),
     get(r"/i/<store:\w+>/<sku:.+>", views.item_image),
     get(r"/<store:\w+>/categories", views.categories),

@@ -10,7 +10,7 @@ from google.appengine.ext import ndb
 
 import webapp2
 
-from .models import Category, Item, Store
+from .models import Category, Item, ItemCounts, Store
 from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
@@ -271,39 +271,6 @@ def item_image(rq, store, sku):
                             content_type=rs.headers['Content-Type'])
 
 
-@cacheize(60 * 60)
-def item_counts(cat_id):
-    found_limit = 1000
-    opts = g_search.QueryOptions(limit=1, number_found_accuracy=found_limit)
-    f_opts = g_search.FacetOptions(
-                 discovery_value_limit=g_search.MAXIMUM_FACET_VALUES_TO_RETURN,
-                 depth=found_limit)
-    index = g_search.Index(ITEMS_INDEX)
-    query = g_search.Query('categories:"%d" tags:"#active"' % cat_id,
-                           opts,
-                           return_facets=['category'],
-                           facet_options=f_opts)
-    rs = index.search(query, deadline=10)
-    if rs.facets:
-        assert len(rs.facets) == 1
-        cat_counts = rs.facets[0]
-        assert cat_counts.name == 'category'
-        cat_counts = cat_counts.values
-    else:
-        cat_counts = []
-
-    def maybe_plus(n):
-        if n >= found_limit:
-            return "%d+" % found_limit
-        else:
-            return "%d" % n
-
-    counts = {int(value.label): maybe_plus(value.count)
-              for value in cat_counts}
-    counts[cat_id] = maybe_plus(rs.number_found)
-    return counts
-
-
 def batches(itr, batch_size):
     b = []
     for e in itr:
@@ -315,49 +282,25 @@ def batches(itr, batch_size):
         yield b
 
 
-@cacheize(25 * 60 * 60)
-def empty_categories(store_id):
-    cats, children = set(), {}
-    for cat in Category.query(Category.store == store_id) \
-                       .iter(batch_size=50):
-        cats.add(cat.key)
-        if cat.parent_cat:
-            children.setdefault(cat.parent_cat, set()) \
-                    .add(cat.key)
-
-    nonempty, empty = set(), set()
-
-    def is_empty(cat_key):
-        return not any(c in nonempty for c in children.get(cat_key, set())) \
-               and Item.query(Item.category == cat_key,
-                              Item.removed == None) \
-                       .count(1) \
-                   == 0
-
-    while cats:
-        seen = nonempty | empty
-        leaves = {ck for ck in cats
-                  if children.get(ck, set()) <= seen}
-        assert leaves
-        empty |= {ck for ck in leaves if is_empty(ck)}
-        nonempty |= leaves - empty
-        cats -= leaves
-
-    logging.debug("Found %d empty categories" % len(empty))
-    return {k.id() for k in empty}
-
-
 @cache(5 * 60)
 def categories(rq, store):
     store_info = get_stores().get(store)
     if not store_info:
         return not_found("Unknown store '%s'" % store)
 
-    with log_latency("empty_categories(%r) {:,d}ms" % store):
-        empty = empty_categories(store)
+    item_counts = ItemCounts.query(ancestor=ndb.Key(Store, store)) \
+                            .get()
+    if item_counts:
+        item_counts = item_counts.categories
+    else:
+        item_counts = {}
 
-    cats = filter(lambda (cat_id, cat): cat_id not in empty,
-                  read_categories(store).iteritems())
+    cats = read_categories(store)
+    if item_counts:
+        # filter out empty if we have item counts
+        cats = filter(lambda (cat_id, cat): item_counts.get(str(cat_id)) > 0,
+                      cats.iteritems())
+
     children = {}
     for cat in cats:
         parent_id = cat[1][1]
@@ -381,18 +324,17 @@ def categories(rq, store):
 
     root = filter(lambda c: not c[1][1], cats)
     root.sort(key=name_sort)
-    counts = {}
-    for cat_id, cat_info in root:
-        counts.update(item_counts(cat_id))
 
     def add_counts(cat):
-        cat['item_count'] = counts.get(cat['id'])
+        cat['item_count'] = item_counts.get(str(cat['id']))
         for cat in cat['children']:
             add_counts(cat)
 
     tree = [traverse(c[0], c[1][0]) for c in root]
-    for cat in tree:
-        add_counts(cat)
+
+    if item_counts:
+        for cat in tree:
+            add_counts(cat)
 
     ctx = {
         'store': store_info,
@@ -400,9 +342,3 @@ def categories(rq, store):
     }
 
     return render("categories.html", ctx)
-
-
-def cache_categories(rq):
-    for store_id in get_stores().iterkeys():
-        empty_categories(store_id, _refresh=True)
-    return webapp2.Response()

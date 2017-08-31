@@ -302,3 +302,12 @@ class Price(ndb.Model):
     timestamp = ndb.DateTimeProperty(auto_now_add=True)
     cents = ndb.IntegerProperty(required=True)
     currency = ndb.StringProperty(required=True, validator=check_currency)
+
+
+class Stat(polymodel.PolyModel):
+    created = ndb.DateTimeProperty(auto_now_add=True)
+
+
+class ItemCounts(Stat):
+    """Use store as parent."""
+    categories = ndb.JsonProperty()

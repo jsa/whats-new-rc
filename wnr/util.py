@@ -1,3 +1,4 @@
+import logging
 import urllib
 
 from google.appengine.api import memcache as memcache_module, urlfetch
@@ -9,6 +10,8 @@ from jinja2.filters import do_mark_safe
 import webapp2
 
 from settings import env
+
+from .models import Category, Item, ItemCounts, Store
 
 
 # "alias" just to get rid of pydev error...
@@ -65,6 +68,51 @@ def count_all(query):
             break
 
     return count
+
+
+def update_category_counts(store_id):
+    cats, children = set(), {}
+    for cat in Category.query(Category.store == store_id) \
+                       .iter(batch_size=50):
+        cats.add(cat.key)
+        if cat.parent_cat:
+            children.setdefault(cat.parent_cat, set()) \
+                    .add(cat.key)
+
+    def item_count(cat_key):
+        ic = count_all(Item.query(Item.category == cat_key,
+                                  Item.removed == None))
+        childs = children.get(cat_key)
+        if childs:
+            ic += sum(item_counts[ck] for ck in childs)
+        return ic
+
+    item_counts = {}
+    while cats:
+        seen = set(item_counts.iterkeys())
+        leaves = {ck for ck in cats
+                  if children.get(ck, set()) <= seen}
+        assert leaves
+        item_counts.update({ck: item_count(ck) for ck in leaves})
+        cats -= leaves
+
+    # reduce keys to *string* IDs for JSON
+    item_counts = {str(ck.id()): c for ck, c in item_counts.iteritems()}
+
+    @ndb.transactional
+    def save_counts(store):
+        stat = ItemCounts.query(ancestor=store) \
+                         .get()
+        if stat:
+            stat.categories = item_counts
+        else:
+            stat = ItemCounts(parent=store,
+                              categories=item_counts)
+        stat.put()
+        logging.debug("Saved %d counts to %r"
+                      % (len(item_counts), stat.key))
+
+    save_counts(ndb.Key(Store, store_id))
 
 
 def ok_resp(rs):

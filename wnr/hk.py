@@ -15,7 +15,7 @@ from . import store_info
 from .models import (
     Category, Item, PAGE_TYPE, Price, ScrapeJob, SiteScan, Store, TableScan)
 from .search import index_items
-from .util import cacheize, get, nub, ok_resp
+from .util import cacheize, get, nub, ok_resp, update_category_counts
 
 
 _store = store_info('hk', "HobbyKing", "https://hobbyking.com/en_us")
@@ -201,10 +201,14 @@ def process_site_scan():
 
 
 def process_queue():
-    if process_table_scan() or process_site_scan():
+    if process_site_scan() or process_table_scan():
         deferred.defer(process_queue, _queue='scrape', _countdown=2)
     else:
         logging.info("Scrape finished")
+        deferred.defer(update_category_counts,
+                       store_id=_store.id,
+                       _queue='scrape',
+                       _countdown=2)
 
 
 def scrape_category(url, html):

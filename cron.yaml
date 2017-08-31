@@ -1,9 +1,5 @@
 cron:
 
-- description: Refresh memcached category data
-  url: /_cron/cache-categories
-  schedule: every 6 hours synchronized
-
 - description: Crawl new HobbyKing items
   url: /_hk/scan-site
   schedule: every mon,tue,wed,thu,fri 9:00
