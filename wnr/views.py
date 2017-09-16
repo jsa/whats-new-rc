@@ -210,11 +210,9 @@ def search(rq):
     max_page = min(max_page, page_limit)
 
     def paging():
-        start_page = max(page - 2, 1)
-        end_page = min(page + 7, max_page)
-        # if end_page <= start_page:
-        #     return
-
+        start_page = min(max(page - 5, 1),
+                         max(max_page - 10, 1))
+        end_page = min(start_page + 10, max_page)
         pages = [(p, page_q(p), p == page)
                  for p in range(start_page, end_page + 1)]
 
@@ -222,10 +220,15 @@ def search(rq):
             # zero results, not even a single page
             return
 
-        if pages[0][0] > 1:
-            pages.insert(0, (1, page_q(1), False))
-        if pages[-1][0] < max_page:
-            pages.append((max_page, page_q(max_page), False))
+        if len(pages) > 4:
+            if pages[0][0] > 1:
+                pages[0] = (1, page_q(1), False)
+                if pages[1][0] > 2:
+                    pages[1] = (u"…",) + pages[1][1:]
+            if pages[-1][0] < max_page:
+                pages[-1] = (max_page, page_q(max_page), False)
+                if pages[-2][0] < (max_page - 1):
+                    pages[-2] = (u"…",) + pages[-2][1:]
 
         paging = {'range': pages}
 
