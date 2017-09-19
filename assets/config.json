@@ -118,7 +118,7 @@
     "@screen-xs": "480px",
     "@screen-xs-min": "@screen-xs",
     "@screen-phone": "@screen-xs-min",
-    "@screen-sm": "768px",
+    "@screen-sm": "667px",
     "@screen-sm-min": "@screen-sm",
     "@screen-tablet": "@screen-sm-min",
     "@screen-md": "992px",
@@ -134,7 +134,7 @@
     "@grid-gutter-width": "30px",
     "@grid-float-breakpoint": "@screen-sm-min",
     "@grid-float-breakpoint-max": "(@grid-float-breakpoint - 1)",
-    "@container-tablet": "(720px + @grid-gutter-width)",
+    "@container-tablet": "@screen-sm",
     "@container-sm": "@container-tablet",
     "@container-desktop": "(940px + @grid-gutter-width)",
     "@container-md": "@container-desktop",
@@ -404,5 +404,5 @@
     "dropdown.js",
     "collapse.js"
   ],
-  "customizerUrl": "http://getbootstrap.com/customize/?id=7d47c9f7784b5a13adb53551b7b9dec0"
+  "customizerUrl": "https://getbootstrap.com/docs/3.3/customize/?id=a3f2ffa12ee0506005208d73639979e1"
 }
