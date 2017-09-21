@@ -97,7 +97,7 @@ class ItemView(object):
         return "ItemView(%r)" % (self.doc,)
 
 
-@cacheize(60 * 60)
+@cacheize(24 * 60 * 60)
 def get_categories(store_id=None):
     if store_id:
         return {c.key.id(): (c.title,
@@ -332,6 +332,28 @@ def categories(rq, store):
     }
 
     return render("categories.html", ctx)
+
+
+def duplicate_cats(rq):
+    by_url = {}
+    for cat in Category.query().iter(batch_size=50):
+        by_url.setdefault(cat.url, []) \
+              .append(cat.key)
+
+    dups = {url: keys for url, keys in by_url.iteritems()
+            if len(keys) > 1}
+
+    if dups:
+        dups = sorted(dups.iteritems())
+        infos = {c.key: "%s (%d)" % (c.title, c.key.id())
+                 for c in ndb.get_multi({k for url, keys in dups for k in keys})}
+        dups = ["%s: %s" % (url, ", ".join(infos[ck] for ck in keys))
+                for url, keys in dups]
+        return webapp2.Response("%d duplicates:\n%s" % (len(dups), "\n".join(dups)),
+                                content_type="text/plain")
+    else:
+        return webapp2.Response("No duplicates found",
+                                content_type="text/plain")
 
 
 def warmup(rq):
