@@ -357,7 +357,8 @@ def duplicate_cats(rq):
 
 
 def warmup(rq):
-    return search(rq)
+    # not doing anything else here as it delays the pending request
+    return webapp2.Response("", content_type="text/plain")
 
 
 def shutdown(rq):
