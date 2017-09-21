@@ -145,7 +145,7 @@ def search(rq):
     if page > page_limit:
         return redir(page_q(page_limit))
 
-    # global sort is latest-ness
+    # Default sort is rank descending, and the rank is the added timestamp.
     # (note: rank would be referenced as "_rank")
     # sort = g_search.SortOptions(
     #            [g_search.SortExpression('added', g_search.SortExpression.DESCENDING)],
@@ -285,21 +285,21 @@ def categories(rq, store):
     else:
         item_counts = {}
 
-    cats = get_categories(store)
+    cats = get_categories(store).items()
     if item_counts:
         # filter out empty if we have item counts
         cats = filter(lambda (cat_id, cat): item_counts.get(str(cat_id)) > 0,
-                      cats.iteritems())
+                      cats)
 
     children = {}
-    for cat in cats:
-        parent_id = cat[1][1]
+    for tup in cats:
+        parent_id = tup[1][1]
         if parent_id:
             children.setdefault(parent_id, []) \
-                    .append(cat)
+                    .append(tup)
 
-    def name_sort(cat):
-        return cat[1][0]
+    def name_sort((cat_id, (title, parent_id))):
+        return title
 
     for childs in children.itervalues():
         childs.sort(key=name_sort)
@@ -308,30 +308,27 @@ def categories(rq, store):
         return {
             'id': cat_id,
             'title': title,
-            'children': [traverse(c[0], c[1][0])
-                         for c in children.get(cat_id, [])]
+            'children': [traverse(cat_id, title)
+                         for cat_id, (title, parent_id)
+                         in children.get(cat_id, [])],
         }
 
-    root = filter(lambda c: not c[1][1], cats)
+    root = filter(lambda (cat_id, (title, parent_id)): not parent_id, cats)
     root.sort(key=name_sort)
+
+    tree = [traverse(cat_id, title) for cat_id, (title, parent_id) in root]
 
     def add_counts(cat):
         cat['item_count'] = item_counts.get(str(cat['id']))
         for cat in cat['children']:
             add_counts(cat)
 
-    tree = [traverse(c[0], c[1][0]) for c in root]
-
     if item_counts:
         for cat in tree:
             add_counts(cat)
 
-    ctx = {
-        'store': store_info,
-        'tree': tree,
-    }
-
-    return render("categories.html", ctx)
+    return render("categories.html", {'store': store_info,
+                                      'tree': tree})
 
 
 def warmup(rq):

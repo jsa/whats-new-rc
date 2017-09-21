@@ -315,6 +315,7 @@ class ItemCounts(Stat):
 
 
 def prune_duplicate_categories():
+    from .hk import children
     from .search import reindex_items
     from .util import update_category_counts
     from .views import get_categories
@@ -365,6 +366,7 @@ def prune_duplicate_categories():
             prev_parent = child.parent_cat
             child.parent_cat = new_parent
             child.put()
+            children(prev_parent, _invalidate=True)
             logging.info("Moved %r from %r to %r"
                          % (child_cat, prev_parent, child.parent_cat))
 
@@ -391,6 +393,8 @@ def prune_duplicate_categories():
                              % (children, active))
                 for child in children:
                     move_child(child, active)
+
+        children(active, _invalidate=True)
 
         logging.info("Moving items from %r to %r" % (prune, active))
         for cat_key in prune:

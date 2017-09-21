@@ -237,10 +237,10 @@ def scrape_category(url, html):
 
 @cacheize(24 * 60 * 60)
 def children(cat_key):
-    # store filter is needed for querying root cats (where parent is None)
-    q = Category.query(Category.store == _store.id,
-                       Category.parent_cat == cat_key)
-    child_cats = q.fetch()
+    # store filter is needed for querying root cats when parent is None
+    child_cats = Category.query(Category.store == _store.id,
+                                Category.parent_cat == cat_key) \
+                         .fetch()
     return {c.title: (c.key, c.url) for c in child_cats}
 
 
