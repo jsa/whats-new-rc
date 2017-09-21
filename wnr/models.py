@@ -316,6 +316,7 @@ class ItemCounts(Stat):
 
 def prune_duplicate_categories():
     from .search import reindex_items
+    from .util import update_category_counts
     from .views import get_categories
 
     assert not ScrapeJob.query().count(limit=1), \
@@ -358,6 +359,7 @@ def prune_duplicate_categories():
 
     @ndb.transactional
     def move_child(child_cat, new_parent):
+        assert new_parent != child_cat
         child = child_cat.get()
         if child.parent_cat != new_parent:
             prev_parent = child.parent_cat
@@ -417,9 +419,15 @@ def prune_duplicate_categories():
               for cat in Category.query(group_by=('store',),
                                         projection=('store',))
                                  .fetch()}
+
     for store_id in stores:
         get_categories(store_id, _invalidate=True)
+
     get_categories(_invalidate=True)
+
+    for store_id in stores:
+        deferred.defer(update_category_counts,
+                       store_id=store_id)
 
     deferred.defer(
         reindex_items,

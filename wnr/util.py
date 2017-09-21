@@ -87,12 +87,16 @@ def update_category_counts(store_id):
             ic += sum(item_counts[ck] for ck in childs)
         return ic
 
+    def debug_children(ck):
+        return "%d: %r" % (ck.id(), children.get(ck))
+
     item_counts = {}
     while cats:
         seen = set(item_counts.iterkeys())
         leaves = {ck for ck in cats
                   if children.get(ck, set()) <= seen}
-        assert leaves
+        assert leaves, "%d categories left:\n%s" \
+                       % (len(cats), "\n".join(map(debug_children, cats)))
         item_counts.update({ck: item_count(ck) for ck in leaves})
         cats -= leaves
 
