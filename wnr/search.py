@@ -76,9 +76,13 @@ def index_items(item_keys):
 
     categories = get_categories()
 
-    def cat_path(cat_key):
+    def cat_path(item_key, cat_key):
         path = []
-        store, title, parent_id = categories[cat_key]
+        try:
+            store, title, parent_id = categories[cat_key.id()]
+        except KeyError:
+            raise KeyError("Category not found, %r: %r %r"
+                           % (item_key, cat_key, path))
         while cat_key:
             path.insert(0, cat_key)
             cat_key = None
@@ -112,7 +116,8 @@ def index_items(item_keys):
 
         facets = []
         if item.category:
-            id_path = ["%d" % ck.id() for ck in cat_path(item.category)]
+            id_path = ["%d" % ck.id()
+                       for ck in cat_path(item.key, item.category)]
             if id_path:
                 fields.append(search.TextField('categories', " ".join(id_path)))
                 # NumberFacet is 30 bit

@@ -2,6 +2,7 @@ from collections import namedtuple
 from Cookie import SimpleCookie
 import logging
 from random import randint
+import time
 
 from google.appengine.api.datastore_errors import BadValueError
 from google.appengine.ext import deferred, ndb
@@ -341,14 +342,19 @@ def prune_duplicate_categories():
                  % (len(dups), "\n".join(dup_infos)))
 
     @ndb.transactional
-    def move_to(item_key, cat_key):
+    def move_to(item_key, to_cat):
         item = item_key.get()
-        if item.category != cat_key:
+        if item.category != to_cat:
             prev_cat = item.category
-            item.category = cat_key
+            item.category = to_cat
             item.put()
             logging.info("Moved %r from %r to %r"
                          % (item_key, prev_cat, item.category))
+
+    def move_items(from_cat, to_cat):
+        q = Item.query(Item.category == from_cat)
+        for ikey in q.iter(batch_size=50, keys_only=True):
+            move_to(ikey, to_cat)
 
     @ndb.transactional
     def move_child(child_cat, new_parent):
@@ -360,11 +366,6 @@ def prune_duplicate_categories():
             logging.info("Moved %r from %r to %r"
                          % (child_cat, prev_parent, child.parent_cat))
 
-    def move_items(from_cat, to_cat):
-        q = Item.query(Item.category == from_cat)
-        for ikey in q.iter(batch_size=50, keys_only=True):
-            move_to(ikey, to_cat)
-
     def deduplicate(cat_keys):
         item_counts = \
             {cat_key: Item.query(Item.category == cat_key)
@@ -373,7 +374,9 @@ def prune_duplicate_categories():
         item_counts = sorted(item_counts.iteritems(),
                              key=lambda (ck, c): c,
                              reverse=True)
-        logging.debug("item_counts: %r" % (item_counts,))
+        logging.debug("item_counts:\n%s"
+                      % "\n".join("- %d: %d" % (ck.id(), c)
+                                  for ck, c in item_counts))
 
         active = item_counts[0][0]
         prune = [ck for ck, c in item_counts[1:]]
@@ -391,6 +394,8 @@ def prune_duplicate_categories():
         for cat_key in prune:
             move_items(cat_key, active)
 
+        time.sleep(.5)
+
         for cat_key in prune:
             assert not Item.query(Item.category == cat_key) \
                            .count(limit=1)
@@ -407,6 +412,13 @@ def prune_duplicate_categories():
         for store_id in stores:
             get_categories(store_id=store_id, _invalidate=True)
 
+    time.sleep(1)
+    stores = {cat.store
+              for cat in Category.query(group_by=('store',),
+                                        projection=('store',))
+                                 .fetch()}
+    for store_id in stores:
+        get_categories(store_id, _invalidate=True)
     get_categories(_invalidate=True)
 
     deferred.defer(
