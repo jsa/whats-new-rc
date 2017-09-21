@@ -9,7 +9,8 @@ env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(
                os.path.join(PROJECT_DIR, "templates")),
     cache_size=-1,
-    auto_reload=False)
+    auto_reload=False,
+    trim_blocks=True)
 
 try:
     env.globals['app_id'] = app_identity.get_application_id()

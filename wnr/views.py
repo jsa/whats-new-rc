@@ -97,8 +97,8 @@ class ItemView(object):
         return "ItemView(%r)" % (self.doc,)
 
 
-@cacheize(10 * 60)
-def read_categories(store_id=None):
+@cacheize(60 * 60)
+def get_categories(store_id=None):
     if store_id:
         return {c.key.id(): (c.title,
                              c.parent_cat and c.parent_cat.id())
@@ -109,19 +109,6 @@ def read_categories(store_id=None):
                              c.title,
                              c.parent_cat and c.parent_cat.id())
                 for c in Category.query().iter(batch_size=50)}
-
-
-category_cache = None
-
-def get_categories():
-    global category_cache
-    # take a local reference to the tuple
-    _cache = category_cache
-    if _cache and time.time() - _cache[1] < 5 * 60:
-        return _cache[0]
-    else:
-        category_cache = (read_categories(), time.time())
-        return category_cache[0]
 
 
 class log_latency(object):
@@ -298,7 +285,7 @@ def categories(rq, store):
     else:
         item_counts = {}
 
-    cats = read_categories(store)
+    cats = get_categories(store)
     if item_counts:
         # filter out empty if we have item counts
         cats = filter(lambda (cat_id, cat): item_counts.get(str(cat_id)) > 0,
@@ -345,3 +332,11 @@ def categories(rq, store):
     }
 
     return render("categories.html", ctx)
+
+
+def warmup(rq):
+    return search(rq)
+
+
+def shutdown(rq):
+    return webapp2.Response("", content_type="text/plain")

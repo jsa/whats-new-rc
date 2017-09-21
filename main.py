@@ -29,6 +29,8 @@ env.filters['as_form'] = as_form
 
 app = webapp2.WSGIApplication([
     get(r"/", views.search),
+    get(r"/_ah/start", views.warmup),
+    get(r"/_ah/stop", views.shutdown),
     get(r"/about", views.about),
     get(r"/i/<store:\w+>/<sku:.+>", views.item_image),
     get(r"/<store:\w+>/categories", views.categories),

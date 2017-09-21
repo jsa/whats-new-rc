@@ -245,7 +245,9 @@ def children(cat_key):
 
 
 def save_cats(path):
-    ckeys = []
+    from .views import get_categories
+
+    ckeys, mod = [], False
     for url, title in path:
         parent = ckeys[-1] if ckeys else None
         struct = children(parent).get(title)
@@ -256,6 +258,7 @@ def save_cats(path):
                 cat.url = url
                 cat.put()
                 children(parent, _invalidate=True)
+                mod = True
         else:
             cat = Category(store=_store.id,
                            title=title,
@@ -263,7 +266,13 @@ def save_cats(path):
                            parent_cat=parent)
             cat_key = cat.put()
             children(parent, _invalidate=True)
+            mod = True
         ckeys.append(cat_key)
+
+    if mod:
+        get_categories(store_id=_store.id, _invalidate=True)
+        get_categories(_invalidate=True)
+
     return ckeys
 
 
