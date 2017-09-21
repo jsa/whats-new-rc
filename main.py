@@ -31,7 +31,6 @@ app = webapp2.WSGIApplication([
     get(r"/", views.search),
     get(r"/_ah/start", views.warmup),
     get(r"/_ah/stop", views.shutdown),
-    get(r"/_util/duplicate-categories", views.duplicate_cats),
     get(r"/about", views.about),
     get(r"/i/<store:\w+>/<sku:.+>", views.item_image),
     get(r"/<store:\w+>/categories", views.categories),

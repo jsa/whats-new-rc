@@ -4,7 +4,7 @@ import logging
 from random import randint
 
 from google.appengine.api.datastore_errors import BadValueError
-from google.appengine.ext import ndb
+from google.appengine.ext import deferred, ndb
 from google.appengine.ext.ndb import polymodel
 
 from pyblooming.bitmap import Bitmap
@@ -277,7 +277,7 @@ class Category(ndb.Model):
     added = ndb.DateTimeProperty(auto_now_add=True)
     title = ndb.StringProperty(required=True)
     url = ndb.StringProperty(required=True)
-    parent_cat = ndb.KeyProperty()
+    parent_cat = ndb.KeyProperty(kind='Category')
     removed = ndb.DateTimeProperty()
 
 
@@ -311,3 +311,105 @@ class Stat(polymodel.PolyModel):
 class ItemCounts(Stat):
     """Use store as parent."""
     categories = ndb.JsonProperty()
+
+
+def prune_duplicate_categories():
+    from .search import reindex_items
+    from .views import get_categories
+
+    assert not ScrapeJob.query().count(limit=1), \
+        "Not pruning as a ScrapeJob exists"
+
+    by_url = {}
+    for cat in Category.query().iter(batch_size=50):
+        by_url.setdefault(cat.url, []) \
+              .append((cat.key, cat.title, cat.store))
+
+    dups = {url: cats for url, cats in by_url.iteritems()
+            if len(cats) > 1}
+
+    if not dups:
+        logging.debug("No duplicate categories found")
+        return
+
+    def cat_info((cat_key, title, store)):
+        return "%s (%d)" % (title, cat_key.id())
+
+    dup_infos = ["%s:\n- %s" % (url, ", ".join(map(cat_info, cats)))
+                 for url, cats in dups.iteritems()]
+    logging.info("Found %d duplicates:\n%s"
+                 % (len(dups), "\n".join(dup_infos)))
+
+    @ndb.transactional
+    def move_to(item_key, cat_key):
+        item = item_key.get()
+        if item.category != cat_key:
+            prev_cat = item.category
+            item.category = cat_key
+            item.put()
+            logging.info("Moved %r from %r to %r"
+                         % (item_key, prev_cat, item.category))
+
+    @ndb.transactional
+    def move_child(child_cat, new_parent):
+        child = child_cat.get()
+        if child.parent_cat != new_parent:
+            prev_parent = child.parent_cat
+            child.parent_cat = new_parent
+            child.put()
+            logging.info("Moved %r from %r to %r"
+                         % (child_cat, prev_parent, child.parent_cat))
+
+    def move_items(from_cat, to_cat):
+        q = Item.query(Item.category == from_cat)
+        for ikey in q.iter(batch_size=50, keys_only=True):
+            move_to(ikey, to_cat)
+
+    def deduplicate(cat_keys):
+        item_counts = \
+            {cat_key: Item.query(Item.category == cat_key)
+                          .count(limit=1000)
+             for cat_key in cat_keys}
+        item_counts = sorted(item_counts.iteritems(),
+                             key=lambda (ck, c): c,
+                             reverse=True)
+        logging.debug("item_counts: %r" % (item_counts,))
+
+        active = item_counts[0][0]
+        prune = [ck for ck, c in item_counts[1:]]
+
+        for cat_key in prune:
+            children = Category.query(Category.parent_cat == cat_key) \
+                               .fetch(keys_only=True)
+            if children:
+                logging.info("Moving children %r to %r"
+                             % (children, active))
+                for child in children:
+                    move_child(child, active)
+
+        logging.info("Moving items from %r to %r" % (prune, active))
+        for cat_key in prune:
+            move_items(cat_key, active)
+
+        for cat_key in prune:
+            assert not Item.query(Item.category == cat_key) \
+                           .count(limit=1)
+            assert not Category.query(Category.parent_cat == cat_key) \
+                               .count(limit=1)
+            cat_key.delete()
+
+        logging.info("Deleted %r" % (prune,))
+
+    for url, cats in dups.iteritems():
+        deduplicate([ck for ck, title, store in cats])
+        # need to invalidate stores immediately as task execution may fail
+        stores = {store for ck, title, store in cats}
+        for store_id in stores:
+            get_categories(store_id=store_id, _invalidate=True)
+
+    get_categories(_invalidate=True)
+
+    deferred.defer(
+        reindex_items,
+        _queue='indexing',
+        _countdown=1)

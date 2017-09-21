@@ -9,7 +9,7 @@ from google.appengine.api import search, urlfetch
 from google.appengine.ext import deferred, ndb
 from google.appengine.ext.ndb import query
 
-from .models import Item, Price
+from .models import Category, Item, Price
 from .util import cacheize, ok_resp
 
 
@@ -69,17 +69,23 @@ def parse_history_price(price):
 
 
 def index_items(item_keys):
+    from .views import get_categories
+
     # de-duplicate
     item_keys = sorted(set(item_keys))
 
+    categories = get_categories()
+
     def cat_path(cat_key):
-        path, cat = [], cat_key.get()
-        while cat:
-            path.insert(0, cat.key)
-            if cat.parent_cat and cat.parent_cat not in path:
-                cat = cat.parent_cat.get()
-            else:
-                break
+        path = []
+        store, title, parent_id = categories[cat_key]
+        while cat_key:
+            path.insert(0, cat_key)
+            cat_key = None
+            if parent_id:
+                parent = ndb.Key(Category, parent_id)
+                if parent not in path:
+                    cat_key = parent
         return path
 
     def item_data(item):
@@ -179,6 +185,7 @@ def reindex_items(cursor=None):
 
         if not (cursor and more):
             break
+
         if time.time() - start > 30:
             deferred.defer(reindex_items,
                            cursor=cursor,
