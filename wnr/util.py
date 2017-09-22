@@ -134,9 +134,9 @@ class _none(object):
     pass
 
 
-def cacheize(timeout):
+def cacheize(timeout, version=""):
     def outer(fn):
-        ns = "cacheize(%s.%s)" % (fn.__module__, fn.__name__)
+        ns = "cacheize#%s(%s.%s)" % (version, fn.__module__, fn.__name__)
         def inner(*args, **kw):
             invalidate = refresh = False
 

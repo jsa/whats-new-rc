@@ -235,13 +235,13 @@ def scrape_category(url, html):
     SiteScan.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
-@cacheize(24 * 60 * 60)
+@cacheize(24 * 60 * 60, version=2)
 def children(cat_key):
     # store filter is needed for querying root cats when parent is None
     child_cats = Category.query(Category.store == _store.id,
                                 Category.parent_cat == cat_key) \
                          .fetch()
-    return {c.title: (c.key, c.url) for c in child_cats}
+    return {c.url: (c.key, c.title) for c in child_cats}
 
 
 def save_cats(path):
@@ -250,12 +250,14 @@ def save_cats(path):
     ckeys, mod = [], False
     for url, title in path:
         parent = ckeys[-1] if ckeys else None
-        struct = children(parent).get(title)
+        struct = children(parent).get(url)
         if struct:
-            cat_key, _url = struct
-            if _url != url:
+            cat_key, _title = struct
+            if _title != title:
                 cat = cat_key.get()
-                cat.url = url
+                logging.warn("Renaming %r '%s' -> '%s'"
+                             % (cat_key, cat.title, title))
+                cat.title = title
                 cat.put()
                 children(parent, _invalidate=True)
                 mod = True
