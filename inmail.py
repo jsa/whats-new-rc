@@ -28,12 +28,24 @@ class Bounce(ndb.Model):
 class InfoEmailHandler(webapp2.RequestHandler):
     """See InboundMailHandler"""
     def post(self):
-        for name, value in self.request.headers.iteritems():
-            logging.info("Header %r: %r" % (name, value))
+        logging.info("Request headers:\n%s"
+                     % "\n".join("- %s: %s" % h
+                                 for h in self.request.headers.iteritems()))
         body = self.request.body
         msg = mail.InboundEmailMessage(body)
         logging.debug("Received %.1fkB from '%s'"
                       % (len(body) / 1024., msg.sender))
+
+        if msg.attachments:
+            def attachment_info((filename, payload)):
+                return "- '%s' (%.1fkB; %s)" \
+                       % (filename,
+                          len(payload.decode()) / 1024.,
+                          mail._GetMimeType(filename))
+            logging.debug("%d attachments:\n%s"
+                          % (len(msg.attachments),
+                             "\n".join(map(attachment_info, msg.attachments))))
+
         ts = datetime.utcfromtimestamp(
                  email.utils.mktime_tz(
                      email.utils.parsedate_tz(
