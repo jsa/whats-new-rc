@@ -16,7 +16,7 @@ class Inmail(ndb.Model):
     sender = ndb.StringProperty(required=True)
     recipients = ndb.StringProperty(repeated=True)
     subject = ndb.StringProperty()
-    raw = ndb.BlobProperty(required=True)
+    body = ndb.TextProperty(required=True, compressed=False)
 
 
 class Bounce(ndb.Model):
@@ -30,10 +30,10 @@ class InfoEmailHandler(webapp2.RequestHandler):
     def post(self):
         for name, value in self.request.headers.iteritems():
             logging.info("Header %r: %r" % (name, value))
-        raw = self.request.body
-        msg = mail.InboundEmailMessage(raw)
+        body = self.request.body
+        msg = mail.InboundEmailMessage(body)
         logging.debug("Received %.1fkB from '%s'"
-                      % (len(raw) / 1024., msg.sender))
+                      % (len(body) / 1024., msg.sender))
         ts = datetime.utcfromtimestamp(
                  email.utils.mktime_tz(
                      email.utils.parsedate_tz(
@@ -44,7 +44,7 @@ class InfoEmailHandler(webapp2.RequestHandler):
                      recipients=to,
                      # the subject field is undefined if no subject
                      subject=getattr(msg, 'subject', None),
-                     raw=raw)
+                     body=body)
         try:
             ent.put()
         except RequestTooLargeError as e:
@@ -60,7 +60,7 @@ class InfoEmailHandler(webapp2.RequestHandler):
                      "Original email recipients: %s\n"
                      "Subject: %s"
                      % (msg.sender,
-                        len(raw) / 1024.**2,
+                        len(body) / 1024.**2,
                         msg.to,
                         getattr(msg, 'subject', "(empty)")))
         else:
