@@ -235,11 +235,13 @@ def scrape_category(url, html):
     SiteScan.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
-@cacheize(24 * 60 * 60, version=2)
+@cacheize(24 * 60 * 60)
 def children(cat_key):
     # store filter is needed for querying root cats when parent is None
     child_cats = Category.query(Category.store == _store.id,
-                                Category.parent_cat == cat_key) \
+                                Category.parent_cat == cat_key,
+                                projection=(Category.url,
+                                            Category.title)) \
                          .fetch()
     return {c.url: (c.key, c.title) for c in child_cats}
 

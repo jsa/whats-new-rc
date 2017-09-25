@@ -11,6 +11,13 @@ indexes:
   - name: parent_cat
   - name: title
 
+- kind: Category
+  properties:
+  - name: parent_cat
+  - name: store
+  - name: title
+  - name: url
+
 - kind: Item
   ancestor: yes
   properties:
