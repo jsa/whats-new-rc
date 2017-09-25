@@ -107,7 +107,9 @@ def get_categories(store_id=None):
         q = Category.query(Category.store == store_id) \
                     .iter(batch_size=200,
                           projection=(Category.title,
-                                      Category.parent_cat))
+                                      Category.parent_cat,
+                                      # included here to avoid an extra index
+                                      Category.url))
         return {c.key.id(): (c.title, key_id(c.parent_cat))
                 for c in q}
     else:
@@ -115,7 +117,9 @@ def get_categories(store_id=None):
                     .iter(batch_size=200,
                           projection=(Category.store,
                                       Category.title,
-                                      Category.parent_cat))
+                                      Category.parent_cat,
+                                      # included here to avoid an extra index
+                                      Category.url))
         return {c.key.id(): (c.store, c.title, key_id(c.parent_cat))
                 for c in q}
 

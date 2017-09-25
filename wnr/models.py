@@ -229,7 +229,7 @@ class SiteScan(ScrapeJob):
                 q = query.filter(Item.url > batch[-1].url)
             else:
                 q = query
-            batch = q.fetch(1000, projection=[Item.url])
+            batch = q.fetch(1000, projection=(Item.url,))
             if not batch:
                 break
             for item in batch:

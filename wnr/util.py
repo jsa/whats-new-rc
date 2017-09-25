@@ -72,7 +72,8 @@ def count_all(query):
 
 def update_category_counts(store_id):
     cats, children = set(), {}
-    for cat in Category.query(Category.store == store_id) \
+    for cat in Category.query(Category.store == store_id,
+                              projection=(Category.parent_cat,)) \
                        .iter(batch_size=50):
         cats.add(cat.key)
         if cat.parent_cat:

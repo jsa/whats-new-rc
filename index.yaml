@@ -2,19 +2,13 @@ indexes:
 
 - kind: Category
   properties:
-  - name: parent_cat
   - name: store
+  - name: parent_cat
 
 - kind: Category
   properties:
   - name: store
   - name: parent_cat
-  - name: title
-
-- kind: Category
-  properties:
-  - name: parent_cat
-  - name: store
   - name: title
   - name: url
 
