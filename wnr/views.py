@@ -99,16 +99,25 @@ class ItemView(object):
 
 @cacheize(24 * 60 * 60)
 def get_categories(store_id=None):
+    def key_id(key):
+        if key:
+            return key.id()
+
     if store_id:
-        return {c.key.id(): (c.title,
-                             c.parent_cat and c.parent_cat.id())
-                for c in Category.query(Category.store == store_id)
-                                 .iter(batch_size=50)}
+        q = Category.query(Category.store == store_id) \
+                    .iter(batch_size=200,
+                          projection=(Category.title,
+                                      Category.parent_cat))
+        return {c.key.id(): (c.title, key_id(c.parent_cat))
+                for c in q}
     else:
-        return {c.key.id(): (c.store,
-                             c.title,
-                             c.parent_cat and c.parent_cat.id())
-                for c in Category.query().iter(batch_size=50)}
+        q = Category.query() \
+                    .iter(batch_size=200,
+                          projection=(Category.store,
+                                      Category.title,
+                                      Category.parent_cat))
+        return {c.key.id(): (c.store, c.title, key_id(c.parent_cat))
+                for c in q}
 
 
 class log_latency(object):
@@ -229,8 +238,14 @@ def search(rq):
 
         return paging
 
+    with log_latency("get_categories() latency {:,d}ms"):
+        cats = get_categories()
+
+    with log_latency("ItemView latency {:,d}ms"):
+        items = ItemView.make_views(rs.results, cats)
+
     ctx = {
-        'items': ItemView.make_views(rs.results, get_categories()),
+        'items': items,
         'paging': paging(),
         'filters': filters,
     }

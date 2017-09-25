@@ -5,6 +5,12 @@ indexes:
   - name: parent_cat
   - name: store
 
+- kind: Category
+  properties:
+  - name: store
+  - name: parent_cat
+  - name: title
+
 - kind: Item
   ancestor: yes
   properties:

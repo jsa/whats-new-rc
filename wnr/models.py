@@ -323,6 +323,11 @@ def prune_duplicate_categories():
     assert not ScrapeJob.query().count(limit=1), \
         "Not pruning as a ScrapeJob exists"
 
+    distinct = Category.query(group_by=(Category.url,)) \
+                       .fetch(projection=(Category.url,))
+    dup_count = Category.query().count() - len(distinct)
+    logging.info("Found %d duplicate URLs from index" % dup_count)
+
     by_url = {}
     for cat in Category.query().iter(batch_size=50):
         by_url.setdefault(cat.url, []) \
