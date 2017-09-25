@@ -7,10 +7,10 @@ cron:
 
 - description: Full HobbyKing crawl
   url: /_hk/scan-site?rescan
-  schedule: 1st, 3rd sat 2:00
+  schedule: 2nd, 3rd, 4th sat 2:00
   timezone: Europe/Helsinki
 
 - description: Scan for removed items
   url: /_hk/scan-table
-  schedule: 2nd, 4th sat 2:00
+  schedule: 1st sat 2:00
   timezone: Europe/Helsinki
