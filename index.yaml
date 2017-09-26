@@ -8,9 +8,9 @@ indexes:
 - kind: Category
   properties:
   - name: store
+  - name: url
   - name: parent_cat
   - name: title
-  - name: url
 
 - kind: Item
   ancestor: yes

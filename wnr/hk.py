@@ -15,7 +15,7 @@ from . import store_info
 from .models import (
     Category, Item, PAGE_TYPE, Price, ScrapeJob, SiteScan, Store, TableScan)
 from .search import index_items
-from .util import cacheize, get, nub, ok_resp, update_category_counts
+from .util import get, nub, ok_resp, update_category_counts
 
 
 _store = store_info('hk', "HobbyKing", "https://hobbyking.com/en_us")
@@ -235,42 +235,57 @@ def scrape_category(url, html):
     SiteScan.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
-@cacheize(24 * 60 * 60)
-def children(cat_key):
-    # store filter is needed for querying root cats when parent is None
-    child_cats = Category.query(Category.store == _store.id,
-                                Category.parent_cat == cat_key,
-                                projection=(Category.url,
-                                            Category.title)) \
-                         .fetch()
-    return {c.url: (c.key, c.title) for c in child_cats}
-
-
 def save_cats(path):
     from .views import get_categories
 
+    def by_url(url):
+        # ignoring duplicates here
+        cat = Category.query(Category.store == _store.id,
+                             Category.url == url,
+                             projection=(Category.title,
+                                         Category.parent_cat)) \
+                      .get()
+        if cat:
+            # re-packing just to enforce the projection
+            return (cat.key, cat.title, cat.parent_cat)
+
+    @ndb.transactional
+    def update(cat_key, title, parent_cat):
+        cat = cat_key.get()
+        mod = False
+        if cat.title != title:
+            logging.warn("Renaming %r '%s' -> '%s'"
+                         % (cat_key, cat.title, title))
+            cat.title = title
+            mod = True
+        if cat.parent_cat != parent_cat:
+            logging.warn("Changing parent of %r %r -> %r"
+                         % (cat_key, cat.parent_cat, parent_cat))
+            cat.parent_cat = parent_cat
+            mod = True
+        if cat.removed:
+            cat.removed = None
+            mod = True
+        if mod:
+            cat.put()
+            return True
+        else:
+            return False
+
     ckeys, mod = [], False
     for url, title in path:
+        struct = by_url(url)
         parent = ckeys[-1] if ckeys else None
-        struct = children(parent).get(url)
         if struct:
-            cat_key, _title = struct
-            if _title != title:
-                cat = cat_key.get()
-                logging.warn("Renaming %r '%s' -> '%s'"
-                             % (cat_key, cat.title, title))
-                cat.title = title
-                cat.removed = None
-                cat.put()
-                children(parent, _invalidate=True)
-                mod = True
+            cat_key, _title, _parent = struct
+            if (title, parent) != (_title, _parent):
+                mod |= update(cat_key, title, parent)
         else:
             cat = Category(store=_store.id,
                            title=title,
                            url=url,
                            parent_cat=parent)
             cat_key = cat.put()
-            children(parent, _invalidate=True)
             mod = True
         ckeys.append(cat_key)
 
