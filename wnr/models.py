@@ -336,7 +336,7 @@ def get_duplicate_categories():
             if len(cats) > 1}
 
     def cat_info((cat_key, title, store)):
-        return " - %s (%d)" % (title, cat_key.id())
+        return " - '%s' (%d)" % (title, cat_key.id())
 
     dup_infos = ["\n%s (%d):\n%s" % (url, len(cats), "\n".join(map(cat_info, cats)))
                  for url, cats in dups.iteritems()]

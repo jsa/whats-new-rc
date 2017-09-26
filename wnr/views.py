@@ -357,3 +357,30 @@ def warmup(rq):
 
 def shutdown(rq):
     return webapp2.Response("", content_type="text/plain")
+
+
+def validate_category_tree():
+    children, remaining = {}, {}
+    for cat_id, (store_id, title, parent_id) in get_categories().iteritems():
+        children.setdefault(parent_id, []) \
+                .append(cat_id)
+        remaining[cat_id] = (title, parent_id)
+
+    def traverse(path=()):
+        if path:
+            cat_id = path[-1]
+            title, parent_id = remaining.pop(cat_id)
+            childs = children.pop(cat_id, [])
+        else:
+            childs = children.pop(None)
+        for child_id in childs:
+            traverse(path + (child_id,))
+
+    traverse()
+
+    def cat_info((cat_id, (title, parent_id))):
+        return "- '%s' (%d, parent %s)" % (title, cat_id, parent_id)
+
+    assert not remaining, \
+        "%d unreachable categories:\n%s" \
+        % (len(remaining), "\n".join(map(cat_info, remaining.iteritems())))
