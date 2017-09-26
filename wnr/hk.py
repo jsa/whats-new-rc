@@ -15,7 +15,7 @@ from . import store_info
 from .models import (
     Category, Item, PAGE_TYPE, Price, ScrapeJob, SiteScan, Store, TableScan)
 from .search import index_items
-from .util import get, nub, ok_resp, update_category_counts
+from .util import cacheize, get, nub, ok_resp, update_category_counts
 
 
 _store = store_info('hk', "HobbyKing", "https://hobbyking.com/en_us")
@@ -235,19 +235,21 @@ def scrape_category(url, html):
     SiteScan.queue(_store.id, categories=cat_urls, items=item_urls)
 
 
+@cacheize(60 * 60)
+def by_url(url):
+    # ignoring duplicates here
+    cat = Category.query(Category.store == _store.id,
+                         Category.url == url,
+                         projection=(Category.title,
+                                     Category.parent_cat)) \
+                  .get()
+    if cat:
+        # re-packing just to enforce the projection
+        return (cat.key, cat.title, cat.parent_cat)
+
+
 def save_cats(path):
     from .views import get_categories
-
-    def by_url(url):
-        # ignoring duplicates here
-        cat = Category.query(Category.store == _store.id,
-                             Category.url == url,
-                             projection=(Category.title,
-                                         Category.parent_cat)) \
-                      .get()
-        if cat:
-            # re-packing just to enforce the projection
-            return (cat.key, cat.title, cat.parent_cat)
 
     @ndb.transactional
     def update(cat_key, title, parent_cat):
@@ -278,8 +280,10 @@ def save_cats(path):
         parent = ckeys[-1] if ckeys else None
         if struct:
             cat_key, _title, _parent = struct
-            if (title, parent) != (_title, _parent):
-                mod |= update(cat_key, title, parent)
+            if (title, parent) != (_title, _parent) \
+               and update(cat_key, title, parent):
+                by_url(url, _invalidate=True)
+                mod = True
         else:
             cat = Category(store=_store.id,
                            title=title,

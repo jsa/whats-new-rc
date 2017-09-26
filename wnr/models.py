@@ -347,6 +347,7 @@ def get_duplicate_categories():
 
 
 def prune_duplicate_categories():
+    from .hk import by_url
     from .search import reindex_items
     from .util import update_category_counts
     from .views import get_categories
@@ -427,6 +428,7 @@ def prune_duplicate_categories():
     for url, cats in dups.itervalues():
         logging.debug("Deduplicating %s" % url)
         deduplicate([ck for ck, title, store in cats])
+        by_url(url, _invalidate=True)
         # need to invalidate stores immediately as task execution may fail
         stores = {store for ck, title, store in cats}
         for store_id in stores:
