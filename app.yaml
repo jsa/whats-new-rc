@@ -6,9 +6,9 @@ instance_class: F1
 automatic_scaling:
   min_idle_instances: 0
   max_idle_instances: 0
-  min_pending_latency: 3s
+  min_pending_latency: 0.5s
   max_pending_latency: 10s
-  max_concurrent_requests: 8
+  max_concurrent_requests: 16
 
 builtins:
 - deferred: on
