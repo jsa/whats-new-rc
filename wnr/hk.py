@@ -260,6 +260,7 @@ def save_cats(path):
                 logging.warn("Renaming %r '%s' -> '%s'"
                              % (cat_key, cat.title, title))
                 cat.title = title
+                cat.removed = None
                 cat.put()
                 children(parent, _invalidate=True)
                 mod = True

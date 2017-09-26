@@ -314,6 +314,38 @@ class ItemCounts(Stat):
     categories = ndb.JsonProperty()
 
 
+def get_duplicate_categories():
+    distinct = Category.query(group_by=(Category.url,)) \
+                       .fetch(projection=(Category.url,))
+    dup_count = Category.query().count() - len(distinct)
+    logging.info("Found %d duplicate URLs from index" % dup_count)
+
+    by_url = {}
+    itr = Category.query() \
+                  .iter(batch_size=200,
+                        projection=(Category.url,
+                                    Category.title,
+                                    Category.store,
+                                    # to avoid an extra index
+                                    Category.parent_cat))
+    for cat in itr:
+        by_url.setdefault(cat.url, []) \
+              .append((cat.key, cat.title, cat.store))
+
+    dups = {url: cats for url, cats in by_url.iteritems()
+            if len(cats) > 1}
+
+    def cat_info((cat_key, title, store)):
+        return " - %s (%d)" % (title, cat_key.id())
+
+    dup_infos = ["\n%s (%d):\n%s" % (url, len(cats), "\n".join(map(cat_info, cats)))
+                 for url, cats in dups.iteritems()]
+    logging.info("Found %d URLs with multiple categories:\n%s"
+                 % (len(dups), "\n".join(dup_infos)))
+
+    return dups
+
+
 def prune_duplicate_categories():
     from .hk import children
     from .search import reindex_items
@@ -323,30 +355,10 @@ def prune_duplicate_categories():
     assert not ScrapeJob.query().count(limit=1), \
         "Not pruning as a ScrapeJob exists"
 
-    distinct = Category.query(group_by=(Category.url,)) \
-                       .fetch(projection=(Category.url,))
-    dup_count = Category.query().count() - len(distinct)
-    logging.info("Found %d duplicate URLs from index" % dup_count)
-
-    by_url = {}
-    for cat in Category.query().iter(batch_size=50):
-        by_url.setdefault(cat.url, []) \
-              .append((cat.key, cat.title, cat.store))
-
-    dups = {url: cats for url, cats in by_url.iteritems()
-            if len(cats) > 1}
+    dups = get_duplicate_categories()
 
     if not dups:
-        logging.debug("No duplicate categories found")
         return
-
-    def cat_info((cat_key, title, store)):
-        return "%s (%d)" % (title, cat_key.id())
-
-    dup_infos = ["%s:\n- %s" % (url, ", ".join(map(cat_info, cats)))
-                 for url, cats in dups.iteritems()]
-    logging.info("Found %d duplicates:\n%s"
-                 % (len(dups), "\n".join(dup_infos)))
 
     @ndb.transactional
     def move_to(item_key, to_cat):
@@ -416,29 +428,27 @@ def prune_duplicate_categories():
 
         logging.info("Deleted %r" % (prune,))
 
-    for url, cats in dups.iteritems():
+    for url, cats in dups.itervalues():
+        logging.debug("Deduplicating %s" % url)
         deduplicate([ck for ck, title, store in cats])
         # need to invalidate stores immediately as task execution may fail
         stores = {store for ck, title, store in cats}
         for store_id in stores:
             get_categories(store_id=store_id, _invalidate=True)
 
-    time.sleep(1)
+    get_categories(_invalidate=True)
+
     stores = {cat.store
               for cat in Category.query(group_by=('store',),
                                         projection=('store',))
                                  .fetch()}
-
     for store_id in stores:
         get_categories(store_id, _invalidate=True)
-
-    get_categories(_invalidate=True)
-
-    for store_id in stores:
         deferred.defer(update_category_counts,
-                       store_id=store_id)
+                       store_id=store_id,
+                       _countdown=5)
 
     deferred.defer(
         reindex_items,
         _queue='indexing',
-        _countdown=1)
+        _countdown=10)
