@@ -369,11 +369,16 @@ def prune_duplicate_categories():
             item.put()
             logging.info("Moved %r from %r to %r"
                          % (item_key, prev_cat, item.category))
+            return True
+        else:
+            return False
 
     def move_items(from_cat, to_cat):
-        q = Item.query(Item.category == from_cat)
-        for ikey in q.iter(batch_size=50, keys_only=True):
-            move_to(ikey, to_cat)
+        mod = False
+        for ikey in Item.query(Item.category == from_cat) \
+                        .iter(batch_size=100, keys_only=True):
+            mod |= move_to(ikey, to_cat)
+        return mod
 
     @ndb.transactional
     def move_child(child_cat, new_parent):
@@ -385,6 +390,9 @@ def prune_duplicate_categories():
             child.put()
             logging.info("Moved %r from %r to %r"
                          % (child_cat, prev_parent, child.parent_cat))
+            return True
+        else:
+            return False
 
     def deduplicate(cat_keys):
         item_counts = \
@@ -400,6 +408,7 @@ def prune_duplicate_categories():
 
         active = item_counts[0][0]
         prune = [ck for ck, c in item_counts[1:]]
+        mod = False
 
         for cat_key in prune:
             children = Category.query(Category.parent_cat == cat_key) \
@@ -408,13 +417,14 @@ def prune_duplicate_categories():
                 logging.info("Moving children %r to %r"
                              % (children, active))
                 for child in children:
-                    move_child(child, active)
+                    mod |= move_child(child, active)
 
         logging.info("Moving items from %r to %r" % (prune, active))
         for cat_key in prune:
-            move_items(cat_key, active)
+            mod |= move_items(cat_key, active)
 
-        time.sleep(.5)
+        if mod:
+            time.sleep(2)
 
         for cat_key in prune:
             assert not Item.query(Item.category == cat_key) \
@@ -425,7 +435,7 @@ def prune_duplicate_categories():
 
         logging.info("Deleted %r" % (prune,))
 
-    for url, cats in dups.itervalues():
+    for url, cats in dups.iteritems():
         logging.debug("Deduplicating %s" % url)
         deduplicate([ck for ck, title, store in cats])
         by_url(url, _invalidate=True)

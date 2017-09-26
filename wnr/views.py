@@ -384,3 +384,5 @@ def validate_category_tree():
     assert not remaining, \
         "%d unreachable categories:\n%s" \
         % (len(remaining), "\n".join(map(cat_info, remaining.iteritems())))
+
+    logging.info("Category tree seems ok")
