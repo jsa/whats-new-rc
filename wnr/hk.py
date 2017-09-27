@@ -263,6 +263,7 @@ def save_cats(path):
         if cat.parent_cat != parent_cat:
             logging.warn("Changing parent of %r %r -> %r"
                          % (cat_key, cat.parent_cat, parent_cat))
+            assert parent_cat != cat.key
             cat.parent_cat = parent_cat
             mod = True
         if cat.removed:

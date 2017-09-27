@@ -4,6 +4,7 @@ import logging
 from random import randint
 import time
 
+from google.appengine.api import memcache
 from google.appengine.api.datastore_errors import BadValueError
 from google.appengine.ext import deferred, ndb
 from google.appengine.ext.ndb import polymodel
@@ -347,6 +348,7 @@ def get_duplicate_categories():
 
 
 def prune_duplicate_categories():
+    """WARNING: This function flushes memcache."""
     from .hk import by_url
     from .search import reindex_items
     from .util import update_category_counts
@@ -444,19 +446,18 @@ def prune_duplicate_categories():
         for store_id in stores:
             get_categories(store_id=store_id, _invalidate=True)
 
-    get_categories(_invalidate=True)
+    memcache.flush_all()
 
     stores = {cat.store
               for cat in Category.query(group_by=('store',),
                                         projection=('store',))
                                  .fetch()}
     for store_id in stores:
-        get_categories(store_id, _invalidate=True)
         deferred.defer(update_category_counts,
                        store_id=store_id,
+                       _queue='indexing',
                        _countdown=5)
 
-    deferred.defer(
-        reindex_items,
-        _queue='indexing',
-        _countdown=10)
+    deferred.defer(reindex_items,
+                   _queue='indexing',
+                   _countdown=10)
