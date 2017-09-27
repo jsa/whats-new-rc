@@ -429,10 +429,12 @@ def prune_duplicate_categories():
             time.sleep(2)
 
         for cat_key in prune:
-            assert not Item.query(Item.category == cat_key) \
-                           .count(limit=1)
-            assert not Category.query(Category.parent_cat == cat_key) \
-                               .count(limit=1)
+            keys = Item.query(Item.category == cat_key) \
+                       .fetch(10, keys_only=True)
+            assert not keys, "Items left: %r" % (keys,)
+            keys = Category.query(Category.parent_cat == cat_key) \
+                           .fetch(10, keys_only=True)
+            assert not keys, "Child categories left: %r" % (keys,)
             cat_key.delete()
 
         logging.info("Deleted %r" % (prune,))
