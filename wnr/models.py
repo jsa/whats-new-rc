@@ -460,6 +460,8 @@ def prune_duplicate_categories():
                        _queue='indexing',
                        _countdown=5)
 
+    # TODO could re-index only items that are under the
+    # final "singulated" categories
     deferred.defer(reindex_items,
                    _queue='indexing',
                    _countdown=10)
