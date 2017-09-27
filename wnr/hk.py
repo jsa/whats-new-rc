@@ -246,6 +246,9 @@ def by_url(url):
     if cat:
         # re-packing just to enforce the projection
         return (cat.key, cat.title, cat.parent_cat)
+    else:
+        # raise exception to avoid caching
+        raise KeyError("No category found for '%s'" % url)
 
 
 def save_cats(path):
@@ -277,21 +280,21 @@ def save_cats(path):
 
     ckeys, mod = [], False
     for url, title in path:
-        struct = by_url(url)
         parent = ckeys[-1] if ckeys else None
-        if struct:
-            cat_key, _title, _parent = struct
-            if (title, parent) != (_title, _parent) \
-               and update(cat_key, title, parent):
-                by_url(url, _invalidate=True)
-                mod = True
-        else:
+        try:
+            cat_key, _title, _parent = by_url(url)
+        except KeyError:
             cat = Category(store=_store.id,
                            title=title,
                            url=url,
                            parent_cat=parent)
             cat_key = cat.put()
             mod = True
+        else:
+            if (title, parent) != (_title, _parent) \
+               and update(cat_key, title, parent):
+                by_url(url, _invalidate=True)
+                mod = True
         ckeys.append(cat_key)
 
     if mod:
