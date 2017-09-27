@@ -292,11 +292,15 @@ def item_image(rq, store, sku):
                           exc_info=True)
         return webapp2.Response(unicode(e), 500, content_type="text/plain")
 
-    logging.debug("%d (%.1fkB) from %s:\n%r"
-                  % (rs.status_code,
-                     len(rs.content) / 1024.,
-                     item.image,
-                     rs.headers))
+    if rs.status_code in (200, 302):
+        level = logging.debug
+    else:
+        level = logging.error
+    level("%d (%.1fkB) from %s:\n%r"
+          % (rs.status_code,
+             len(rs.content) / 1024.,
+             item.image,
+             rs.headers))
 
     # Forward a bunch of headers. (Some may be overridden by App Engine.)
     headers = {}
