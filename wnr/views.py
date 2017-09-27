@@ -283,9 +283,24 @@ def item_image(rq, store, sku):
                      len(rs.content) / 1024.,
                      item.image,
                      rs.headers))
-    return webapp2.Response(rs.content,
-                            rs.status_code,
-                            content_type=rs.headers['Content-Type'])
+
+    # Forward a bunch of headers. (Some may be overridden by App Engine.)
+    headers = {}
+    for field in ('Content-Type', 'Cache-Control', 'Date', 'ETag', 'Expires',
+                  'Last-Modified'):
+        value = rs.headers.get(field.lower())
+        if value:
+            headers[field] = value
+
+    rs = webapp2.Response(rs.content,
+                          rs.status_code,
+                          content_type=headers['Content-Type'])
+    # webapp2.Response overrides Cache-Control in contructor to 'no-cache'?!
+    # Thus, need to set after constructor...
+    for field, value in headers.iteritems():
+        rs.headers[field] = value
+
+    return rs
 
 
 def batches(itr, batch_size):

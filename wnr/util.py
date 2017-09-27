@@ -42,7 +42,8 @@ def cache(expiry):
         def inner(*args, **kw):
             rs = fn(*args, **kw)
             if isinstance(rs, webapp2.Response) \
-               and rs.status == "200 OK":
+               and rs.status == "200 OK" \
+               and 'Cache-Control' not in rs.headers:
                 rs.headers['Cache-Control'] = "public, max-age=%d" % expiry
             return rs
         return inner
