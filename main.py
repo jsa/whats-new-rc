@@ -32,7 +32,7 @@ app = webapp2.WSGIApplication([
     get(r"/_ah/start", views.warmup),
     get(r"/_ah/stop", views.shutdown),
     get(r"/about", views.about),
-    get(r"/i/<store:\w+>/<sku:.+>", views.item_image),
+    webapp2.Route(r"/i/<store:\w+>/<sku:.+>", views.item_image, methods=('GET', 'HEAD')),
     get(r"/<store:\w+>/categories", views.categories),
     routes.PathPrefixRoute(r"/_hk", hk.routes),
     # get(r"/<store:\w+>", views.store),

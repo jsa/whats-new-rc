@@ -269,12 +269,26 @@ def item_image(rq, store, sku):
     if not item:
         return not_found("Item not found")
 
+    logging.debug("Request headers: %r" % (rq.headers,))
+
+    method = {
+        'GET': urlfetch.GET,
+        'HEAD': urlfetch.HEAD,
+    }[rq.method]
+
+    headers = {'Referer': urllib.quote(item.url)}
+    for field in ('Accept', 'If-None-Match'):
+        value = rq.headers.get(field)
+        if value:
+            headers[field] = value
+
     try:
         rs = urlfetch.fetch(item.image,
-                            headers={'Referer': urllib.quote(item.url)},
+                            method=method,
+                            headers=headers,
                             deadline=10)
     except Exception as e:
-        logging.exception("Failed to fetch image '%s'" % item.image,
+        logging.exception("Image %s failed: '%s'" % (rq.method, item.image),
                           exc_info=True)
         return webapp2.Response(unicode(e), 500, content_type="text/plain")
 
@@ -294,11 +308,17 @@ def item_image(rq, store, sku):
 
     rs = webapp2.Response(rs.content,
                           rs.status_code,
-                          content_type=headers['Content-Type'])
+                          # missing for HEAD response
+                          content_type=headers.get('Content-Type'))
     # webapp2.Response overrides Cache-Control in contructor to 'no-cache'?!
     # Thus, need to set after constructor...
     for field, value in headers.iteritems():
         rs.headers[field] = value
+    # delete the stupid default values...
+    if not headers.get('Content-Type'):
+        del rs.headers['Content-Type']
+    if method == urlfetch.HEAD:
+        del rs.headers['Content-Length']
 
     return rs
 
