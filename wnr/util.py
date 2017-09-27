@@ -43,8 +43,7 @@ def cache(expiry):
             rs = fn(*args, **kw)
             if isinstance(rs, webapp2.Response) \
                and rs.status == "200 OK":
-                rs.headers['Cache-Control'] = \
-                    "public, max-age=%d" % expiry
+                rs.headers['Cache-Control'] = "public, max-age=%d" % expiry
             return rs
         return inner
     return outer

@@ -269,7 +269,15 @@ def item_image(rq, store, sku):
     if not item:
         return not_found("Item not found")
 
-    rs = urlfetch.fetch(item.image, headers={'Referer': urllib.quote(item.url)})
+    try:
+        rs = urlfetch.fetch(item.image,
+                            headers={'Referer': urllib.quote(item.url)},
+                            deadline=10)
+    except Exception as e:
+        logging.exception("Failed to fetch image '%s'" % item.image,
+                          exc_info=True)
+        return webapp2.Response(unicode(e), 500, content_type="text/plain")
+
     logging.debug("%d (%.1fkB) from %s:\n%r"
                   % (rs.status_code,
                      len(rs.content) / 1024.,

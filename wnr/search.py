@@ -36,8 +36,8 @@ def us_exchange_rate(currency):
         'base': currency,
         'symbols': "USD",
     }
-    rs = urlfetch.fetch("http://api.fixer.io/latest?%s"
-                        % urlencode(query))
+    rs = urlfetch.fetch("http://api.fixer.io/latest?%s" % urlencode(query),
+                        deadline=30)
     if rs.status_code == 422:
         raise ValueError("Unknown currency %r" % (currency,))
     ok_resp(rs)
