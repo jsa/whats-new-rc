@@ -454,10 +454,7 @@ def scrape_item(url, html):
         keys = ndb.put_multi(puts)
         logging.debug("Added %r" % (keys,))
 
-    deferred.defer(index_items,
-                   [item.key],
-                   _queue='indexing',
-                   _countdown=2)
+    index_items([item])
 
 
 def proxy(rq):

@@ -10,7 +10,7 @@ from google.appengine.ext import deferred, ndb
 from google.appengine.ext.ndb import query
 
 from .models import Category, Item, Price
-from .util import cacheize, ok_resp
+from .util import cacheize, nubby, ok_resp
 
 
 ITEMS_INDEX = 'items-20161212'
@@ -70,9 +70,6 @@ def parse_history_price(price):
 
 def index_items(item_keys):
     from .views import get_categories
-
-    # de-duplicate
-    item_keys = sorted(set(item_keys))
 
     categories = get_categories()
 
@@ -144,8 +141,18 @@ def index_items(item_keys):
 
         return fields, facets
 
+    if all(isinstance(x, Item) for x in item_keys):
+        items = sorted(nubby(lambda i: i.key, item_keys),
+                       key=lambda i: i.key)
+        item_keys = [i.key for i in items]
+    else:
+        assert all(isinstance(x, ndb.Key) for x in item_keys)
+        # de-duplicate
+        item_keys = sorted(set(item_keys))
+        items = ndb.get_multi(item_keys)
+
     adds, dels = [], []
-    for item_key, item in zip(item_keys, ndb.get_multi(item_keys)):
+    for item_key, item in zip(item_keys, items):
         iid = item_key.string_id()
         if not iid:
             # ignore, not indexed
