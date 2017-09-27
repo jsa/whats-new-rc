@@ -187,9 +187,11 @@ def reindex_items(cursor=None):
 
     while True:
         keys, cursor, more = \
-            Item.query().fetch_page(page_size=50,
-                                    keys_only=True,
-                                    start_cursor=cursor)
+            Item.query() \
+                .order(-Item.added) \
+                .fetch_page(page_size=50,
+                            keys_only=True,
+                            start_cursor=cursor)
         if not keys:
             break
 
