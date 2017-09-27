@@ -73,7 +73,7 @@ def queue_categories(rescan=False):
 
     logging.debug("Found %d categories" % len(urls))
     SiteScan.queue(_store.id, categories=urls)
-    deferred.defer(process_queue, _queue='scrape', _countdown=2)
+    deferred.defer(process_queue, _queue='scrape', _countdown=1)
 
 
 def cookie_value(cookies):
@@ -202,13 +202,13 @@ def process_site_scan():
 
 def process_queue():
     if process_site_scan() or process_table_scan():
-        deferred.defer(process_queue, _queue='scrape', _countdown=2)
+        deferred.defer(process_queue, _queue='scrape', _countdown=1)
     else:
         logging.info("Scrape finished")
         deferred.defer(update_category_counts,
                        store_id=_store.id,
                        _queue='scrape',
-                       _countdown=2)
+                       _countdown=5)
 
 
 def scrape_category(url, html):
