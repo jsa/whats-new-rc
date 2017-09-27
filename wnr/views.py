@@ -292,7 +292,7 @@ def item_image(rq, store, sku):
                           exc_info=True)
         return webapp2.Response(unicode(e), 500, content_type="text/plain")
 
-    if rs.status_code in (200, 302):
+    if rs.status_code in (200, 304):
         level = logging.debug
     else:
         level = logging.error
