@@ -1,4 +1,6 @@
+import hashlib
 import logging
+import time
 import urllib
 
 from google.appengine.api import memcache as memcache_module, urlfetch
@@ -71,10 +73,12 @@ def count_all(query):
 
 
 def update_category_counts(store_id):
+    from .views import get_categories
+
     cats, children = set(), {}
     for cat in Category.query(Category.store == store_id,
                               projection=(Category.parent_cat,)) \
-                       .iter(batch_size=50):
+                       .iter(batch_size=200):
         cats.add(cat.key)
         if cat.parent_cat:
             children.setdefault(cat.parent_cat, set()) \
@@ -119,6 +123,15 @@ def update_category_counts(store_id):
 
     save_counts(ndb.Key(Store, store_id))
 
+    time.sleep(1)
+    get_categories(_invalidate=True)
+    stores = {cat.store
+              for cat in Category.query(group_by=('store',),
+                                        projection=('store',))
+                                 .fetch()}
+    for store_id in stores:
+        get_categories(store_id=store_id, _invalidate=True)
+
 
 def ok_resp(rs):
     if rs.status_code == 200:
@@ -153,7 +166,8 @@ def cacheize(timeout, version=""):
             except KeyError:
                 pass
 
-            key = repr((args, kw))
+            key = hashlib.sha512(repr((args, sorted(kw.iteritems())))) \
+                         .hexdigest()
 
             if invalidate:
                 memcache.delete(key, namespace=ns)
