@@ -15,6 +15,12 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
+SORT_PARAM = 'sort'
+SORT_LATEST = 'latest'
+SORT_CHEAP = 'cheap'
+SORT_EXPENSIVE = 'expensive'
+
+
 def get_stores():
     from . import hk
     return {hk._store.id: hk._store}
@@ -160,23 +166,37 @@ def search(rq):
     else:
         page = 1
 
-    page_size = 60
+    page_size = 72 # divisible by 2, 3, and 4
     page_limit = g_search.MAXIMUM_SEARCH_OFFSET / page_size + 1
     if page > page_limit:
         return redir(page_q(page_limit))
 
-    # Default sort is rank descending, and the rank is the added timestamp.
-    # (note: rank would be referenced as "_rank")
-    # sort = g_search.SortOptions(
-    #            [g_search.SortExpression('added', g_search.SortExpression.DESCENDING)],
-    #            limit=g_search.MAXIMUM_SORTED_DOCUMENTS)
+    sort = rq.GET.get(SORT_PARAM) or rq.cookies.get(SORT_PARAM)
 
-    count_accy = 1000
+    if sort == SORT_CHEAP:
+        sort = g_search.SortExpression(
+                   'us_cents', g_search.SortExpression.ASCENDING)
+    elif sort == SORT_EXPENSIVE:
+        sort = g_search.SortExpression(
+                   'us_cents', g_search.SortExpression.DESCENDING)
+    else:
+        # Default sort is rank descending, and the rank is the added timestamp.
+        # (note: rank would be referenced as "_rank")
+        # sort = g_search.SortExpression('added', g_search.SortExpression.DESCENDING)
+        sort = None
+
+    if sort:
+        sort = g_search.SortOptions(
+                   [sort], limit=g_search.MAXIMUM_SORTED_DOCUMENTS)
+
     index = g_search.Index(ITEMS_INDEX)
     opts = g_search.QueryOptions(
                limit=page_size,
-               number_found_accuracy=count_accy,
-               offset=page_size * (page - 1))
+               number_found_accuracy=g_search.MAXIMUM_SORTED_DOCUMENTS
+                                     if sort else
+                                     g_search.MAXIMUM_SEARCH_OFFSET,
+               offset=page_size * (page - 1),
+               sort_options=sort)
     expr, filters = [], []
 
     search_q = rq.GET.get("q")
@@ -211,7 +231,9 @@ def search(rq):
     with log_latency("Search latency {:,d}ms"):
         rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
 
-    max_page = rs.number_found / page_size
+    # limit to 1000
+    num_found = min(rs.number_found, g_search.MAXIMUM_SEARCH_OFFSET)
+    max_page = num_found / page_size
     if rs.number_found % page_size:
         max_page += 1
     max_page = min(max_page, page_limit)
@@ -259,15 +281,28 @@ def search(rq):
         'items': items,
         'paging': paging(),
         'filters': filters,
+        'warnings': [],
     }
 
-    if rs.number_found < count_accy:
+    if rs.number_found < g_search.MAXIMUM_SEARCH_OFFSET:
         ctx['total_count'] = "{:,d}".format(rs.number_found)
     else:
-        ctx['total_count'] = "{:,d}+".format(count_accy)
+        ctx['total_count'] = "{:,d}+".format(g_search.MAXIMUM_SEARCH_OFFSET)
+        if rs.number_found >= g_search.MAXIMUM_SORTED_DOCUMENTS:
+            ctx['warnings'].append(
+                "Results may be missing items due to large number of hits")
 
     with log_latency("Render latency {:,d}ms"):
-        return render("search.html", ctx)
+        rs = render("search.html", ctx)
+
+    # update sort cookie
+    sort = rq.GET.get(SORT_PARAM)
+    if sort in (SORT_CHEAP, SORT_EXPENSIVE):
+        rs.set_cookie(SORT_PARAM, sort, max_age=60 * 60 * 24 * 365)
+    elif SORT_PARAM in rq.cookies:
+        rs.delete_cookie(SORT_PARAM)
+
+    return rs
 
 
 @cache(60 * 60)
