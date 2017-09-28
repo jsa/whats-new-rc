@@ -90,8 +90,15 @@ class ItemView(object):
     def __getattr__(self, name):
         return self.doc.field(name).value
 
+    def __unicode__(self):
+        fields = ["doc_id='%s'" % self.doc.doc_id] \
+                 + ["%s='%s'" % (field.name, field.value)
+                    for field in sorted(self.doc.fields,
+                                        key=lambda f: f.name)]
+        return "ItemView(%s)" % ", ".join(fields)
+
     def __str__(self):
-        return "ItemView(%s)" % str(self.doc)
+        return unicode(self).encode('ascii', 'replace')
 
     def __repr__(self):
         return "ItemView(%r)" % (self.doc,)
