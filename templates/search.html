@@ -60,8 +60,8 @@ span.label-hk {
 				<div class="form-group">
 					<select name="s" class="form-control">
 						<option value="">Latest first</option>
-						<option value="cheap"{% if GET('s') == 'cheap' %} selected="selected"{% endif %}>Cheap first</option>
-						<option value="expensive"{% if GET('s') == 'expensive' %} selected="selected"{% endif %}>Expensive first</option>
+						<option value="{{ SORT.CHEAP }}"{% if GET('s') == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
+						<option value="{{ SORT.EXPENSIVE }}"{% if GET('s') == SORT.EXPENSIVE %} selected="selected"{% endif %}>Expensive first</option>
 					</select>
 				</div>
 			</form>

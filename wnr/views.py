@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from collections import namedtuple
 from datetime import datetime, timedelta
 import logging
 import re
@@ -15,9 +16,9 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
-SORT_LATEST = 'latest'
-SORT_CHEAP = 'cheap'
-SORT_EXPENSIVE = 'expensive'
+SORT = namedtuple("SortOrder",
+                  ('LATEST', 'CHEAP', 'EXPENSIVE')) \
+                  (u"️📅↓", u"💰↑", u"💰↓")
 
 
 def get_stores():
@@ -172,10 +173,10 @@ def search(rq):
         return redir(page_q(page_limit))
 
     sort = rq.GET.get('s')
-    if sort == SORT_CHEAP:
+    if sort == SORT.CHEAP:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.ASCENDING)
-    elif sort == SORT_EXPENSIVE:
+    elif sort == SORT.EXPENSIVE:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.DESCENDING)
     elif sort is not None:
@@ -282,6 +283,7 @@ def search(rq):
         'paging': paging(),
         'filters': filters,
         'warnings': [],
+        'SORT': SORT,
     }
 
     if rs.number_found < g_search.MAXIMUM_SEARCH_OFFSET:
