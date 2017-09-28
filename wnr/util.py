@@ -215,6 +215,10 @@ def asciidict(d):
             if v}
 
 
+def path():
+    return webapp2.get_request().path
+
+
 def qset(param, value=None, path=None, as_dict=False):
     rq = webapp2.get_request()
     if path is None:

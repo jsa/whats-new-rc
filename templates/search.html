@@ -34,23 +34,45 @@ span.label-hk {
 </div>
 
 <div class="container-fluid">
-	{% if filters %}
+	{% if warnings %}
 	<div class="row">
-		<div class="col-xs-12">
+		{% for warn in warnings %}
+		<div class="alert alert-warning">{{ warn }}</div>
+		{% endfor %}
+	</div>
+	{% endif %}
+
+	<div class="row">
+		{% if filters %}
+		<div class="col-sm-10">
 			{% for filter, clear in filters %}
 			<a href="{{ clear }}" class="btn btn-success">
 				<span class="close">&times;</span> {{ filter }}
 			</a>
 			{% endfor %}
 		</div>
+		{% endif %}
+		<div class="col-sm-2 pull-right text-right">
+			<form action="{{ path() }}" method="get" class="form">
+				{% for name, value in qset('s', None, as_dict=True).iteritems() %}
+				<input type="hidden" name="{{ name }}" value="{{ value }}">
+				{% endfor %}
+				<div class="form-group">
+					<select name="s" class="form-control">
+						<option value="">Latest first</option>
+						<option value="cheap"{% if GET('s') == 'cheap' %} selected="selected"{% endif %}>Cheap first</option>
+						<option value="expensive"{% if GET('s') == 'expensive' %} selected="selected"{% endif %}>Expensive first</option>
+					</select>
+				</div>
+			</form>
+		</div>
 	</div>
-	{% endif %}
 
 	<div class="row">
-		<div class="col-sm-3">
+		<div class="col-sm-4">
 			<h4><span class="label label-default">{{ total_count }} results</span></h4>
 		</div>
-		<div class="col-sm-9 text-right">
+		<div class="col-sm-8 text-right">
 			{% include 'search-paging.html' %}
 		</div>
 	</div>
@@ -99,4 +121,15 @@ span.label-hk {
 		{% include 'search-paging.html' %}
 	</div>
 </div>
+{% endblock %}
+
+{% block js %}
+{{ super() }}
+<script type="text/javascript">
+$(function () {
+	$('select').change(function () {
+		$(this).parents('form').submit();
+	});
+});
+</script>
 {% endblock %}

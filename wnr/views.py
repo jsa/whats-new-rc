@@ -15,7 +15,6 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
-SORT_PARAM = 'sort'
 SORT_LATEST = 'latest'
 SORT_CHEAP = 'cheap'
 SORT_EXPENSIVE = 'expensive'
@@ -152,6 +151,7 @@ class log_latency(object):
 
 @cache(30)
 def search(rq):
+
     def page_q(page):
         return qset("p", page if page >= 2 else None)
 
@@ -171,19 +171,19 @@ def search(rq):
     if page > page_limit:
         return redir(page_q(page_limit))
 
-    sort = rq.GET.get(SORT_PARAM) or rq.cookies.get(SORT_PARAM)
-
+    sort = rq.GET.get('s')
     if sort == SORT_CHEAP:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.ASCENDING)
     elif sort == SORT_EXPENSIVE:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.DESCENDING)
-    else:
-        # Default sort is rank descending, and the rank is the added timestamp.
-        # (note: rank would be referenced as "_rank")
-        # sort = g_search.SortExpression('added', g_search.SortExpression.DESCENDING)
-        sort = None
+    elif sort is not None:
+        return redir(qset("s", None))
+
+    # Default sort is rank descending, and the rank is the added timestamp.
+    # (note: rank would be referenced as "_rank")
+    # sort = g_search.SortExpression('added', g_search.SortExpression.DESCENDING)
 
     if sort:
         sort = g_search.SortOptions(
@@ -290,19 +290,10 @@ def search(rq):
         ctx['total_count'] = "{:,d}+".format(g_search.MAXIMUM_SEARCH_OFFSET)
         if rs.number_found >= g_search.MAXIMUM_SORTED_DOCUMENTS:
             ctx['warnings'].append(
-                "Results may be missing items due to large number of hits")
+                "Sorting may be missing items due to large number of hits")
 
     with log_latency("Render latency {:,d}ms"):
-        rs = render("search.html", ctx)
-
-    # update sort cookie
-    sort = rq.GET.get(SORT_PARAM)
-    if sort in (SORT_CHEAP, SORT_EXPENSIVE):
-        rs.set_cookie(SORT_PARAM, sort, max_age=60 * 60 * 24 * 365)
-    elif SORT_PARAM in rq.cookies:
-        rs.delete_cookie(SORT_PARAM)
-
-    return rs
+        return render("search.html", ctx)
 
 
 @cache(60 * 60)

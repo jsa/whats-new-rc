@@ -6,8 +6,7 @@ import webapp2
 from webapp2_extras import routes
 
 from settings import env
-from wnr import hk, views
-from wnr.util import as_form, GET, get, qset
+from wnr import hk, util, views
 
 
 # disable in-context cache (the newbie helper)
@@ -20,20 +19,21 @@ def get_stores():
                   key=lambda (store_id, info): info.title)
 
 
-env.globals['GET'] = GET
-env.globals['qset'] = qset
+env.globals['GET'] = util.GET
+env.globals['path'] = util.path
+env.globals['qset'] = util.qset
 env.globals['stores'] = get_stores
 
-env.filters['as_form'] = as_form
+env.filters['as_form'] = util.as_form
 
 
 app = webapp2.WSGIApplication([
-    get(r"/", views.search),
-    get(r"/_ah/start", views.warmup),
-    get(r"/_ah/stop", views.shutdown),
-    get(r"/about", views.about),
+    util.get(r"/", views.search),
+    util.get(r"/_ah/start", views.warmup),
+    util.get(r"/_ah/stop", views.shutdown),
+    util.get(r"/about", views.about),
     webapp2.Route(r"/i/<store:\w+>/<sku:.+>", views.item_image, methods=('GET', 'HEAD')),
-    get(r"/<store:\w+>/categories", views.categories),
+    util.get(r"/<store:\w+>/categories", views.categories),
     routes.PathPrefixRoute(r"/_hk", hk.routes),
     # get(r"/<store:\w+>", views.store),
 ], debug=False)
