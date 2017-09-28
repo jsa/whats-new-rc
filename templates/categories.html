@@ -34,7 +34,7 @@
 						<ul class="submenu">
 							{% for cat in cat.children recursive %}
 							<li>
-								<a href="/?c={{ cat.id }}">{{ cat.title }}</a>
+								<a href="/?c={{ cat.id }}">All {{ cat.title }}</a>
 								{% if cat.item_count %}({{ cat.item_count }}){% endif %}
 							</li>
 							{% if cat.children %}
