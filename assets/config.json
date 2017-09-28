@@ -396,6 +396,7 @@
     "labels.less",
     "jumbotron.less",
     "thumbnails.less",
+    "alerts.less",
     "panels.less",
     "component-animations.less",
     "dropdowns.less"
@@ -404,5 +405,5 @@
     "dropdown.js",
     "collapse.js"
   ],
-  "customizerUrl": "https://getbootstrap.com/docs/3.3/customize/?id=2763d08917f8044bd7f274d41eaec17a"
+  "customizerUrl": "https://getbootstrap.com/docs/3.3/customize/?id=24786f1d7894316c8bd882ecfaf6e626"
 }
