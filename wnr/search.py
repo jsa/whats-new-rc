@@ -75,12 +75,12 @@ def index_items(item_keys):
 
     def cat_path(item_key, cat_key):
         path = []
-        try:
-            store, title, parent_id = categories[cat_key.id()]
-        except KeyError:
-            raise KeyError("Category not found, %r: %r %r"
-                           % (item_key, cat_key, path))
         while cat_key:
+            try:
+                store, title, parent_id = categories[cat_key.id()]
+            except KeyError:
+                raise KeyError("Category not found, %r: %r %r"
+                               % (item_key, cat_key, path))
             path.insert(0, cat_key)
             cat_key = None
             if parent_id:
