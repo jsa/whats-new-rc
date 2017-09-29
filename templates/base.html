@@ -43,11 +43,11 @@
 						<li><a href="/about">About</a></li>
 					</ul>
 					<form class="navbar-form navbar-right"
-					      action="{{ qset('q', path="/") }}"
+					      action="{{ qset(PARAM.SEARCH, path="/") }}"
 					      method="get">
-						{{ qset('q', as_dict=True)|as_form }}
+						{{ qset(PARAM.SEARCH, as_dict=True)|as_form }}
 						<div class="input-group">
-							<input type="text" class="form-control" name="q" value="{{ GET('q') }}">
+							<input type="text" class="form-control" name="{{ PARAM.SEARCH }}" value="{{ GET(PARAM.SEARCH) }}">
 							<span class="input-group-btn">
 								<button class="btn btn-default" type="submit">Search</button>
 							</span>

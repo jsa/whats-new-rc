@@ -16,9 +16,13 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
+PARAM = namedtuple("SortParam",
+                  ('CATEGORY', 'PAGE', 'SEARCH', 'SORT')) \
+                  (u"🗂", u"📄️", u"🔦", u"🔀")
+
 SORT = namedtuple("SortOrder",
                   ('LATEST', 'CHEAP', 'EXPENSIVE')) \
-                  (u"️📅↓", u"💰↑", u"💰↓")
+                  (u"️📅↓", u"💸↑", u"💸↓")
 
 
 def get_stores():
@@ -28,7 +32,7 @@ def get_stores():
 
 @cache(10)
 def about(rq):
-    return render("about.html")
+    return render("about.html", {'PARAM': PARAM})
 
 
 def format_price(cur, amt):
@@ -154,9 +158,9 @@ class log_latency(object):
 def search(rq):
 
     def page_q(page):
-        return qset("p", page if page >= 2 else None)
+        return qset(PARAM.PAGE, page if page >= 2 else None)
 
-    page = rq.GET.pop("p", None)
+    page = rq.GET.pop(PARAM.PAGE, None)
     if page:
         try:
             page = int(page)
@@ -172,7 +176,7 @@ def search(rq):
     if page > page_limit:
         return redir(page_q(page_limit))
 
-    sort = rq.GET.get('s')
+    sort = rq.GET.get(PARAM.SORT)
     if sort == SORT.CHEAP:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.ASCENDING)
@@ -180,7 +184,7 @@ def search(rq):
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.DESCENDING)
     elif sort is not None:
-        return redir(qset("s", None))
+        return redir(qset(PARAM.SORT))
 
     # Default sort is rank descending, and the rank is the added timestamp.
     # (note: rank would be referenced as "_rank")
@@ -200,15 +204,15 @@ def search(rq):
                sort_options=sort)
     expr, filters = [], []
 
-    search_q = rq.GET.get("q")
+    search_q = rq.GET.get(PARAM.SEARCH)
     if search_q:
         search_q = re.sub(r"[^a-z0-9&_~#]", " ", search_q.lower().strip()) \
                      .strip()
     if search_q:
         expr.append(search_q)
-        filters.append(('"%s"' % search_q, qset("q")))
+        filters.append(('"%s"' % search_q, qset(PARAM.SEARCH)))
 
-    cats = rq.GET.get("c")
+    cats = rq.GET.get(PARAM.CATEGORY)
     if cats:
         cats = cats.split(",")
         try:
@@ -223,7 +227,7 @@ def search(rq):
         cat_ids = ['"%d"' % c[0] for c in cats]
         expr.append("categories:(%s)" % " OR ".join(cat_ids))
         cat_names = [c[1][1] for c in cats]
-        filters.append((" OR ".join(cat_names), qset("c")))
+        filters.append((" OR ".join(cat_names), qset(PARAM.CATEGORY)))
 
     if not expr:
         # basically just to have some query for the search...
@@ -283,6 +287,7 @@ def search(rq):
         'paging': paging(),
         'filters': filters,
         'warnings': [],
+        'PARAM': PARAM,
         'SORT': SORT,
     }
 
@@ -429,7 +434,8 @@ def categories(rq, store):
             add_counts(cat)
 
     return render("categories.html", {'store': store_info,
-                                      'tree': tree})
+                                      'tree': tree,
+                                      'PARAM': PARAM})
 
 
 def warmup(rq):

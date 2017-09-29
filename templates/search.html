@@ -54,14 +54,14 @@ span.label-hk {
 		{% endif %}
 		<div class="col-sm-2 pull-right text-right">
 			<form action="{{ path() }}" method="get" class="form">
-				{% for name, value in qset('s', None, as_dict=True).iteritems() %}
+				{% for name, value in qset(PARAM.SORT, as_dict=True).iteritems() %}
 				<input type="hidden" name="{{ name }}" value="{{ value }}">
 				{% endfor %}
 				<div class="form-group">
-					<select name="s" class="form-control">
+					<select name="{{ PARAM.SORT }}" class="form-control">
 						<option value="">Latest first</option>
-						<option value="{{ SORT.CHEAP }}"{% if GET('s') == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
-						<option value="{{ SORT.EXPENSIVE }}"{% if GET('s') == SORT.EXPENSIVE %} selected="selected"{% endif %}>Expensive first</option>
+						<option value="{{ SORT.CHEAP }}"{% if GET(PARAM.SORT) == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
+						<option value="{{ SORT.EXPENSIVE }}"{% if GET(PARAM.SORT) == SORT.EXPENSIVE %} selected="selected"{% endif %}>Expensive first</option>
 					</select>
 				</div>
 			</form>
@@ -96,7 +96,7 @@ span.label-hk {
 					<p>
 						{% for id, title in item.category_path %}
 						{% if not loop.first %}<br />&raquo;{% endif %}
-						<a href="{{ qset('c', id) }}">{{ title }}</a>
+						<a href="{{ qset(PARAM.CATEGORY, id) }}">{{ title }}</a>
 						{% endfor %}
 					</p>
 					<p>{{ item.added }}</p>

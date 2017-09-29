@@ -210,9 +210,21 @@ def GET(param):
 
 
 def asciidict(d):
-    return {k.encode('utf-8'): unicode(v).encode('utf-8')
-            for k, v in d.iteritems()
-            if v}
+    def utf(s):
+        if isinstance(s, unicode):
+            return s.encode('utf-8')
+        else:
+            return s
+    return {utf(k): utf(v) for k, v in d.iteritems() if v}
+
+
+def unicodedict(d):
+    def de_utf(s):
+        if isinstance(s, str):
+            return s.decode('utf-8')
+        else:
+            return s
+    return {de_utf(k): de_utf(v) for k, v in d.iteritems() if v}
 
 
 def path():
@@ -224,7 +236,7 @@ def qset(param, value=None, path=None, as_dict=False):
     if path is None:
         path = rq.path
     if rq.GET:
-        q = rq.GET.copy()
+        q = unicodedict(rq.GET)
     else:
         q = {}
     if value:
@@ -234,7 +246,7 @@ def qset(param, value=None, path=None, as_dict=False):
     if as_dict:
         return q
     if q:
-        return "%s?%s" % (path, urllib.urlencode(asciidict(q)))
+        return path + "?%s" % urllib.urlencode(asciidict(q))
     else:
         return path
 
@@ -242,5 +254,5 @@ def qset(param, value=None, path=None, as_dict=False):
 def as_form(q):
     html = "".join('<input type="hidden" name="%s" value="%s">'
                    % (escape(param), escape(value))
-                   for param, value in q.iteritems())
+                   for param, value in unicodedict(q).iteritems())
     return do_mark_safe(html)
