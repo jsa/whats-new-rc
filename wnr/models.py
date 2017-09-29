@@ -12,6 +12,8 @@ from google.appengine.ext.ndb import polymodel
 from pyblooming.bitmap import Bitmap
 from pyblooming.bloom import BloomFilter
 
+from . import get_stores
+
 
 """
 # test snippet for bloomfilter
@@ -217,29 +219,18 @@ class SiteScan(ScrapeJob):
                           % round(len(bf.bitmap.mmap) / 1024))
             return bf
 
-    def scan_indexed(self):
-        store_key = ndb.Key(Store, self.key.id())
-        query = Item.query(Item.removed == None,
-                           ancestor=store_key) \
-                    .order(Item.url)
-        indexed = self.get_bloom(None)
-        # results in timeout without this kind of manual batch fetching
-        batch = None
-        while True:
-            if batch:
-                q = query.filter(Item.url > batch[-1].url)
-            else:
-                q = query
-            batch = q.fetch(1000, projection=(Item.url,))
-            if not batch:
-                break
-            for item in batch:
-                assert item.url
-                indexed.add(self.salt_url(item.url))
-        return indexed
-
     def salt_url(self, url):
         return str("%d$%s" % (self.bloom_salt, url))
+
+    def scan_indexed(self):
+        indexed = self.get_bloom(None)
+        itr = Item.query(Item.removed == None,
+                         ancestor=ndb.Key(Store, self.key.id())) \
+                  .iter(batch_size=200,
+                        projection=(Item.url,))
+        for item in itr:
+            indexed.add(self.salt_url(item.url))
+        return indexed
 
 
 class TableScan(ScrapeJob):
@@ -450,11 +441,7 @@ def prune_duplicate_categories():
 
     memcache.flush_all()
 
-    stores = {cat.store
-              for cat in Category.query(group_by=('store',),
-                                        projection=('store',))
-                                 .fetch()}
-    for store_id in stores:
+    for store_id in get_stores():
         deferred.defer(update_category_counts,
                        store_id=store_id,
                        _queue='indexing',

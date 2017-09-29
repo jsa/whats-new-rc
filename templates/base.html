@@ -45,7 +45,7 @@
 					<form class="navbar-form navbar-right"
 					      action="{{ qset(PARAM.SEARCH, path="/") }}"
 					      method="get">
-						{{ qset(PARAM.SEARCH, as_dict=True)|as_form }}
+						{{ qset(PARAM.SEARCH, as_dict=True)|as_hidden }}
 						<div class="input-group">
 							<input type="text" class="form-control" name="{{ PARAM.SEARCH }}" value="{{ GET(PARAM.SEARCH) }}">
 							<span class="input-group-btn">

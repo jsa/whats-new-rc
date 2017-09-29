@@ -54,9 +54,7 @@ span.label-hk {
 		{% endif %}
 		<div class="col-sm-2 pull-right text-right">
 			<form action="{{ path() }}" method="get" class="form">
-				{% for name, value in qset(PARAM.SORT, as_dict=True).iteritems() %}
-				<input type="hidden" name="{{ name }}" value="{{ value }}">
-				{% endfor %}
+				{{ qset(PARAM.SORT, as_dict=True)|as_hidden }}
 				<div class="form-group">
 					<select name="{{ PARAM.SORT }}" class="form-control">
 						<option value="">Latest first</option>

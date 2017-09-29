@@ -32,8 +32,8 @@ class NoSKU(Exception):
 def reindex_latest():
     span = datetime.utcnow() - timedelta(days=3)
     query = Item.query(Item.added > span)
-    urls = [item.url for item in query.iter(batch_size=500,
-                                            projection=[Item.url])]
+    urls = [item.url for item in query.iter(batch_size=200,
+                                            projection=(Item.url,))]
     logging.info("Queuing %d items" % len(urls))
     new_run = SiteScan.initialize(_store.id, skip_indexed=False)
     SiteScan.queue(_store.id, items=urls)
@@ -266,6 +266,7 @@ def save_cats(path):
         if cat.parent_cat != parent_cat:
             logging.warn("Changing parent of %r %r -> %r"
                          % (cat_key, cat.parent_cat, parent_cat))
+            # this needs full item reindexing
             assert parent_cat != cat.key
             cat.parent_cat = parent_cat
             mod = True
@@ -427,7 +428,8 @@ def scrape_item(url, html):
     if len(pids) == 1:
         fields['custom'] = {'hk-id': pids.pop()}
     else:
-        logging.warn("Found %d product IDs: %r" % (len(pids), pids))
+        assert not pids, "Found multiple product IDs: %r" % (pids,)
+        logging.warn("Couldn't find a product ID")
 
     logging.debug("Parsed item data:\n%s"
                   % "\n".join("%s: %s" % i

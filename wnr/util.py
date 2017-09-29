@@ -4,7 +4,6 @@ import time
 import urllib
 
 from google.appengine.api import memcache as memcache_module, urlfetch
-from google.appengine.api.datastore import MAXIMUM_RESULTS
 from google.appengine.ext import ndb
 
 from jinja2._markupsafe._native import escape
@@ -52,26 +51,6 @@ def cache(expiry):
     return outer
 
 
-def count_all(query):
-    start, count = None, 0
-    while True:
-        if start:
-            q = query.filter(ndb.Model.key > start)
-        else:
-            q = query
-        key = q.get(offset=MAXIMUM_RESULTS,
-                    keys_only=True)
-
-        if key:
-            count += MAXIMUM_RESULTS
-            start = key
-        else:
-            count += q.count(limit=MAXIMUM_RESULTS)
-            break
-
-    return count
-
-
 def update_category_counts(store_id):
     from .views import get_categories
 
@@ -85,8 +64,9 @@ def update_category_counts(store_id):
                     .add(cat.key)
 
     def item_count(cat_key):
-        ic = count_all(Item.query(Item.category == cat_key,
-                                  Item.removed == None))
+        ic = Item.query(Item.category == cat_key,
+                        Item.removed == None) \
+                 .count()
         childs = children.get(cat_key)
         if childs:
             ic += sum(item_counts[ck] for ck in childs)
@@ -251,7 +231,7 @@ def qset(param, value=None, path=None, as_dict=False):
         return path
 
 
-def as_form(q):
+def as_hidden(q):
     html = "".join('<input type="hidden" name="%s" value="%s">'
                    % (escape(param), escape(value))
                    for param, value in unicodedict(q).iteritems())

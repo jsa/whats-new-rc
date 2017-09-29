@@ -59,8 +59,8 @@ class InfoEmailHandler(webapp2.RequestHandler):
                      body=body)
         try:
             ent.put()
-        except RequestTooLargeError as e:
-            logging.exception(e)
+        except RequestTooLargeError:
+            logging.exception("Failed to store Inmail")
             mail.send_mail(
                 sender="info@%s.appspotmail.com" % get_application_id(),
                 to=msg.sender,

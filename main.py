@@ -14,7 +14,7 @@ ndb.get_context().set_cache_policy(False)
 
 
 def get_stores():
-    from wnr.views import get_stores
+    from wnr import get_stores
     return sorted(get_stores().iteritems(),
                   key=lambda (store_id, info): info.title)
 
@@ -24,7 +24,7 @@ env.globals['path'] = util.path
 env.globals['qset'] = util.qset
 env.globals['stores'] = get_stores
 
-env.filters['as_form'] = util.as_form
+env.filters['as_hidden'] = util.as_hidden
 
 
 app = webapp2.WSGIApplication([

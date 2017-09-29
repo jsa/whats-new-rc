@@ -13,6 +13,11 @@ indexes:
   - name: title
 
 - kind: Item
+  properties:
+  - name: category
+  - name: removed
+
+- kind: Item
   ancestor: yes
   properties:
   - name: removed

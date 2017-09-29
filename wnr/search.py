@@ -7,7 +7,6 @@ from urllib import urlencode
 
 from google.appengine.api import search, urlfetch
 from google.appengine.ext import deferred, ndb
-from google.appengine.ext.ndb import query
 
 from .models import Category, Item, Price
 from .util import cacheize, nubby, ok_resp
@@ -218,7 +217,7 @@ def delete_items(item_keys):
             # already deleted
             return
         prices = Price.query(ancestor=ikey) \
-                      .fetch(query._MAX_LIMIT, keys_only=True)
+                      .fetch(keys_only=True)
         ndb.delete_multi([ikey] + prices)
         logging.debug("Deleted %r" % ikey)
 

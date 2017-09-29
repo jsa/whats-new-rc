@@ -11,6 +11,7 @@ from google.appengine.ext import ndb
 
 import webapp2
 
+from . import get_stores
 from .models import Category, Item, ItemCounts, Store
 from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
 from .util import cache, cacheize, not_found, nub, qset, redir, render
@@ -18,16 +19,11 @@ from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 PARAM = namedtuple("SortParam",
                   ('CATEGORY', 'PAGE', 'SEARCH', 'SORT')) \
-                  (u"🗂", u"📄️", u"🔦", u"🔀")
+                  (u"🗄", u"📄️", u"🔦", u"🔀")
 
 SORT = namedtuple("SortOrder",
                   ('LATEST', 'CHEAP', 'EXPENSIVE')) \
                   (u"️📅↓", u"💸↑", u"💸↓")
-
-
-def get_stores():
-    from . import hk
-    return {hk._store.id: hk._store}
 
 
 @cache(10)
@@ -328,8 +324,7 @@ def item_image(rq, store, sku):
                             headers=headers,
                             deadline=10)
     except Exception as e:
-        logging.exception("Image %s failed: '%s'" % (rq.method, item.image),
-                          exc_info=True)
+        logging.exception("Image %s failed: '%s'" % (rq.method, item.image))
         return webapp2.Response(unicode(e), 500, content_type="text/plain")
 
     if rs.status_code in (200, 304):
