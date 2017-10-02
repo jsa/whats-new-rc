@@ -223,13 +223,24 @@ class SiteScan(ScrapeJob):
         return str("%d$%s" % (self.bloom_salt, url))
 
     def scan_indexed(self):
+        store_key = ndb.Key(Store, self.key.id())
+        query = Item.query(Item.removed == None,
+                           ancestor=store_key) \
+                    .order(Item.url)
         indexed = self.get_bloom(None)
-        itr = Item.query(Item.removed == None,
-                         ancestor=ndb.Key(Store, self.key.id())) \
-                  .iter(batch_size=200,
-                        projection=(Item.url,))
-        for item in itr:
-            indexed.add(self.salt_url(item.url))
+        # results in timeout without this kind of manual batch fetching
+        batch = None
+        while True:
+            if batch:
+                q = query.filter(Item.url > batch[-1].url)
+            else:
+                q = query
+            batch = q.fetch(500, projection=(Item.url,))
+            if not batch:
+                break
+            for item in batch:
+                assert item.url
+                indexed.add(self.salt_url(item.url))
         return indexed
 
 

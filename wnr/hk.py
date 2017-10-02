@@ -32,7 +32,7 @@ class NoSKU(Exception):
 def reindex_latest():
     span = datetime.utcnow() - timedelta(days=3)
     query = Item.query(Item.added > span)
-    urls = [item.url for item in query.iter(batch_size=200,
+    urls = [item.url for item in query.iter(batch_size=500,
                                             projection=(Item.url,))]
     logging.info("Queuing %d items" % len(urls))
     new_run = SiteScan.initialize(_store.id, skip_indexed=False)
