@@ -18,7 +18,7 @@ from .search import index_items
 from .util import cacheize, get, nub, ok_resp, update_category_counts
 
 
-_store = store_info('hk', "HobbyKing", "https://hobbyking.com/en_us")
+_store = store_info('hk', "HobbyKing", "https://hobbyking.com/")
 
 href = re.compile(r'href="(.+?)"')
 itemprop = re.compile(r'itemprop="(.+?)" content="(.+?)"')
