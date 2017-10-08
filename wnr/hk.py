@@ -202,7 +202,11 @@ def process_site_scan():
 
 def process_queue():
     if process_site_scan() or process_table_scan():
-        deferred.defer(process_queue, _queue='scrape', _countdown=1)
+        deferred.defer(
+            process_queue,
+            _queue='scrape',
+            _countdown=1,
+            _retry_options=taskqueue.TaskRetryOptions(max_backoff_seconds=3))
     else:
         logging.info("Scrape finished")
         deferred.defer(update_category_counts,
