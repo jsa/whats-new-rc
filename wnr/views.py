@@ -152,6 +152,25 @@ class log_latency(object):
 
 @cache(30)
 def search(rq):
+    ###
+    # Temporary parameter rename redirect.
+    #
+    from .util import asciidict, unicodedict
+    q = unicodedict(rq.GET)
+    _redir = False
+    for _from, _to in (('c', PARAM.CATEGORY),
+                       ('p', PARAM.PAGE),
+                       ('q', PARAM.SEARCH),
+                       ('s', PARAM.SORT)):
+        val = q.pop(_from, None)
+        if val:
+            q[_to] = val
+            _redir = True
+    if _redir:
+        logging.info("Redirecting %r -> %r" % (rq.GET, q))
+        return redir(rq.path + "?%s" % urllib.urlencode(asciidict(q)))
+    #
+    ###
 
     def page_q(page):
         return qset(PARAM.PAGE, page if page >= 2 else None)
