@@ -239,6 +239,9 @@ def search(rq):
         max_page += 1
     max_page = min(max_page, page_limit)
 
+    if page > max_page:
+        return redir(page_q(max_page))
+
     def paging():
         start_page = min(max(page - 5, 1),
                          max(max_page - 10, 1))
