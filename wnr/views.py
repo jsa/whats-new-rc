@@ -256,7 +256,7 @@ def search(rq):
     max_page = num_found / page_size
     if rs.number_found % page_size:
         max_page += 1
-    max_page = min(max_page, page_limit)
+    max_page = max(min(max_page, page_limit), 1)
 
     if page > max_page:
         return redir(page_q(max_page))
