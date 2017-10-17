@@ -37,6 +37,12 @@ handlers:
   upload: assets/favicon.ico
   expiration: "60s"
 
+# for ownership verifications etc.
+- url: /([^/]+\.html)
+  static_files: assets/\1
+  upload: assets/[^/]+\.html
+  expiration: "10s"
+
 - url: /a
   static_dir: assets
   expiration: "60s"

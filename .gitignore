@@ -3,4 +3,5 @@
 .pydevproject
 .settings/
 *.py[co]
+assets/*.html
 templates/about.html
