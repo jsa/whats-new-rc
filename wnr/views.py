@@ -335,6 +335,11 @@ def item_image(rq, store, sku):
     }[rq.method]
 
     headers = {'Referer': urllib.quote(item.url)}
+
+    ua = rq.headers.get('User-Agent')
+    if ua:
+        headers['User-Agent'] = "%s;" % ua
+
     for field in ('Accept', 'If-None-Match'):
         value = rq.headers.get(field)
         if value:
