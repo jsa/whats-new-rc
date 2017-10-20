@@ -244,10 +244,6 @@ def search(rq):
         cat_names = [c[1][1] for c in cats]
         filters.append((" OR ".join(cat_names), qset(PARAM.CATEGORY)))
 
-    if not expr:
-        # basically just to have some query for the search...
-        expr = ["added<=%d" % to_unix(datetime.utcnow())]
-
     with log_latency("Search latency {:,d}ms"):
         rs = index.search(g_search.Query(" ".join(expr), opts), deadline=10)
 
