@@ -165,7 +165,11 @@ def scrape_page(url_type, url, cookies):
                 break
             else:
                 raise taskqueue.TransientError(
-                          "%d for %s" % (rs.status_code, url))
+                          "%d for %s\nBody:\n%s\n\nHeaders:\n%r"
+                          % (rs.status_code,
+                             url,
+                             content.encode('ascii', 'xmlcharrefreplace')[:2000],
+                             rs.headers))
 
         else:
             raise ValueError("Unknown URL type %r" % (url_type,))
@@ -206,7 +210,7 @@ def process_queue():
             process_queue,
             _queue='scrape',
             _countdown=1,
-            _retry_options=taskqueue.TaskRetryOptions(max_backoff_seconds=3))
+            _retry_options=taskqueue.TaskRetryOptions(max_backoff_seconds=30))
     else:
         logging.info("Scrape finished")
         deferred.defer(update_category_counts,
