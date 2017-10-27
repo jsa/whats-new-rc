@@ -64,6 +64,8 @@ class ItemView(object):
             self.added = "%d hours" % (since.seconds / 3600 + 1)
         elif since < timedelta(days=1, hours=23):
             self.added = "1 day, %d hour(s)" % (since.seconds / 3600 + 1)
+        elif added.year != datetime.utcnow().year:
+            self.added = added.strftime("%b %d, %Y")
         else:
             self.added = added.strftime("%b %d")
 
