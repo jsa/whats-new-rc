@@ -62,9 +62,13 @@ def queue_categories(rescan=False):
 
     rs = ok_resp(urlfetch.fetch(_store.url, deadline=60))
 
-    m = re.search(r'class="mb_new_pro"><a href="(.+?)"', rs.content)
-    assert m, "New items URL not found"
+    m = re.search(r'class="newItemsLink"><a href="(.+?)"', rs.content)
+    assert m, "New items category URL not found"
     urls = [m.group(1)]
+
+    m = re.search(r'class="preordersLink"><a href="(.+?)"', rs.content)
+    assert m, "Pre-orders category URL not found"
+    urls.append(m.group(1))
 
     nav = rs.content.split('id="nav"', 1)[1] \
                     .split("</nav>", 1)[0]
