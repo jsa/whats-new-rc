@@ -8,7 +8,7 @@ automatic_scaling:
   max_idle_instances: 0
   min_pending_latency: 15s
   max_pending_latency: 15s
-  max_concurrent_requests: 80
+  max_concurrent_requests: 16
 
 builtins:
 - deferred: on
