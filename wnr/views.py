@@ -13,7 +13,7 @@ import webapp2
 
 from . import get_stores
 from .models import Category, Item, ItemCounts, Store
-from .search import from_unix, ITEMS_INDEX, parse_history_price, to_unix
+from .search import from_unix, ITEMS_INDEX, parse_history_price
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
@@ -378,8 +378,9 @@ def item_image(rq, store, sku):
     # Thus, need to set after constructor...
     for field, value in headers.iteritems():
         rs.headers[field] = value
-    # delete the stupid default values...
+    # delete the stupid webapp2 default values...
     if not headers.get('Content-Type'):
+        # should've been available from source response
         del rs.headers['Content-Type']
     if method == urlfetch.HEAD:
         del rs.headers['Content-Length']
