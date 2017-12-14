@@ -17,6 +17,9 @@ ITEMS_INDEX = 'items-20161212'
 # 2016-12-14T10:27:40.492650
 _iso_format = "%Y-%m-%dT%H:%M:%S.%f"
 
+# 2016-12-14T10:27:40
+_iso_format_short = "%Y-%m-%dT%H:%M:%S"
+
 
 def to_unix(dt):
     return int(time.mktime(dt.timetuple()))
@@ -54,7 +57,7 @@ def to_us_cents(price):
 
 
 def format_history_price(price):
-    return "%s:%s%s" % (price.timestamp.isoformat(),
+    return "%s:%s%s" % (price.timestamp.strftime(_iso_format_short),
                         price.currency,
                         decimal.Decimal(price.cents) / 100)
 
@@ -62,7 +65,12 @@ def format_history_price(price):
 def parse_history_price(price):
     timestamp, price = price.rsplit(":", 1)
     cur, amt = price[:3], price[3:]
-    return (datetime.strptime(timestamp, _iso_format),
+    try:
+        dt = datetime.strptime(timestamp, _iso_format_short)
+    except ValueError as e:
+        logging.warn(e, exc_info=True)
+        dt = datetime.strptime(timestamp, _iso_format)
+    return (dt,
             cur,
             decimal.Decimal(amt))
 
