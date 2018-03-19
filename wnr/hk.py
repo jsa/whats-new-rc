@@ -224,9 +224,15 @@ def process_queue():
 
 
 def scrape_category(url, html):
-    items = html.split('id="list-item-')[1:]
-    item_urls = [href.search(item).group(1) for item in items]
-    logging.info("Found %d items" % len(item_urls))
+    items = html.split('class="products-grid', 1)
+    if len(items) > 1:
+        items = items[1].split('class="toolbar-bottom', 1)[0] \
+                        .split('<li class="item')[1:]
+        item_urls = [href.search(item).group(1) for item in items]
+        logging.info("Found %d items" % len(item_urls))
+    else:
+        logging.warn("No items found")
+        item_urls = []
 
     cat_urls = []
 
