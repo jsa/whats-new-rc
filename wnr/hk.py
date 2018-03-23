@@ -224,7 +224,11 @@ def process_queue():
 
 
 def scrape_category(url, html):
-    items = html.split('class="products-grid', 1)
+    # list format
+    items = html.split('id="products-list"', 1)
+    if len(items) == 1:
+        # grid format
+        items = html.split('class="products-grid', 1)
     if len(items) > 1:
         items = items[1].split('class="toolbar-bottom', 1)[0] \
                         .split('<li class="item')[1:]
