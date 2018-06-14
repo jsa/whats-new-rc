@@ -2,7 +2,7 @@ cron:
 
 - description: "HobbyKing: crawl new items"
   url: /_hk/scan-site
-  schedule: every mon,tue,wed,thu,fri 8:00
+  schedule: every mon,tue,wed,thu,fri 9:00
   timezone: Europe/Helsinki
 
 - description: "HobbyKing: full crawl"
