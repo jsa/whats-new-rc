@@ -132,9 +132,18 @@ def index_items(item_keys):
                       .order(-Price.timestamp) \
                       .fetch()
         if prices:
-            fields.append(search.NumberField('us_cents', to_us_cents(prices[0])))
-            prices = map(format_history_price, prices)
-            fields.append(search.TextField('price_history', " ".join(prices)))
+            us_cents = map(to_us_cents, prices)
+            if len(us_cents) > 1:
+                discount_usc = max(us_cents) - us_cents[0]
+                discount_pc = discount_usc * 100 / max(us_cents)
+            else:
+                discount_usc = discount_pc = 0
+            fields += [
+                search.NumberField('us_cents', us_cents[0]),
+                search.TextField('price_history', " ".join(map(format_history_price, prices))),
+                search.NumberField('discount_pc', discount_pc),
+                search.NumberField('discount_us_cents', discount_usc),
+            ]
 
         tags = []
         if item.removed:

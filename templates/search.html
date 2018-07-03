@@ -60,6 +60,8 @@ span.label-hk {
 						<option value="">Latest first</option>
 						<option value="{{ SORT.CHEAP }}"{% if GET(PARAM.SORT) == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
 						<option value="{{ SORT.EXPENSIVE }}"{% if GET(PARAM.SORT) == SORT.EXPENSIVE %} selected="selected"{% endif %}>Expensive first</option>
+						<option value="{{ SORT.DISCOUNT_PC }}"{% if GET(PARAM.SORT) == SORT.DISCOUNT_PC %} selected="selected"{% endif %}>Best discount (%)</option>
+						<option value="{{ SORT.DISCOUNT_AMT }}"{% if GET(PARAM.SORT) == SORT.DISCOUNT_AMT %} selected="selected"{% endif %}>Best discount ($)</option>
 					</select>
 				</div>
 			</form>

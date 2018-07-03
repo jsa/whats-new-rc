@@ -17,13 +17,15 @@ from .search import from_unix, ITEMS_INDEX, parse_history_price
 from .util import cache, cacheize, not_found, nub, qset, redir, render
 
 
-PARAM = namedtuple("SortParam",
-                  ('CATEGORY', 'PAGE', 'SEARCH', 'SORT')) \
-                  (u"🗄", u"📄️", u"🔦", u"🔀")
+PARAM = namedtuple(
+    "QueryParam",
+    ('CATEGORY', 'PAGE', 'SEARCH', 'SORT')) \
+    (u"🗄", u"📄️", u"🔦", u"🔀")
 
-SORT = namedtuple("SortOrder",
-                  ('LATEST', 'CHEAP', 'EXPENSIVE')) \
-                  (u"️📅↓", u"💸↑", u"💸↓")
+SORT = namedtuple(
+    "SortOrder",
+    ('CHEAP', 'DISCOUNT_AMT', 'DISCOUNT_PC', 'EXPENSIVE', 'LATEST')) \
+    (u"💸↑", u"💯💲", u"💯➗", u"💸↓", u"️📅↓")
 
 
 @cache(10)
@@ -197,6 +199,12 @@ def search(rq):
     if sort == SORT.CHEAP:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.ASCENDING)
+    elif sort == SORT.DISCOUNT_AMT:
+        sort = g_search.SortExpression(
+                   'discount_amount', g_search.SortExpression.DESCENDING)
+    elif sort == SORT.DISCOUNT_PC:
+        sort = g_search.SortExpression(
+                   'discount_pc', g_search.SortExpression.DESCENDING)
     elif sort == SORT.EXPENSIVE:
         sort = g_search.SortExpression(
                    'us_cents', g_search.SortExpression.DESCENDING)
