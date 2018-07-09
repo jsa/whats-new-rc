@@ -201,7 +201,7 @@ def search(rq):
                    'us_cents', g_search.SortExpression.ASCENDING)
     elif sort == SORT.DISCOUNT_AMT:
         sort = g_search.SortExpression(
-                   'discount_amount', g_search.SortExpression.DESCENDING)
+                   'discount_us_cents', g_search.SortExpression.DESCENDING)
     elif sort == SORT.DISCOUNT_PC:
         sort = g_search.SortExpression(
                    'discount_pc', g_search.SortExpression.DESCENDING)
