@@ -1,16 +1,16 @@
 cron:
 
-- description: "HobbyKing: crawl new items"
-  url: /_hk/scan-site
-  schedule: every mon,tue,wed,thu,fri 9:00
-  timezone: Europe/Helsinki
+#- description: "HobbyKing: crawl new items"
+#  url: /_hk/scan-site
+#  schedule: every mon,tue,wed,thu,fri 9:00
+#  timezone: Europe/Helsinki
 
-- description: "HobbyKing: full crawl"
-  url: /_hk/scan-site?rescan
-  schedule: 2nd, 3rd, 4th, 5th sat 2:00
-  timezone: Europe/Helsinki
+#- description: "HobbyKing: full crawl"
+#  url: /_hk/scan-site?rescan
+#  schedule: 2nd, 3rd, 4th, 5th sat 2:00
+#  timezone: Europe/Helsinki
 
-- description: "HobbyKing: scan for removed items"
-  url: /_hk/scan-table
-  schedule: 1st sat 2:00
-  timezone: Europe/Helsinki
+#- description: "HobbyKing: scan for removed items"
+#  url: /_hk/scan-table
+#  schedule: 1st sat 2:00
+#  timezone: Europe/Helsinki
