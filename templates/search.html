@@ -47,7 +47,7 @@ span.label-hk {
 		<div class="col-sm-10">
 			{% for filter, clear in filters %}
 			<a href="{{ clear }}" class="btn btn-success">
-				<span class="close">&times;</span> {{ filter }}
+				<span class="close">&times;</span> {{ filter }}
 			</a>
 			{% endfor %}
 		</div>
@@ -56,9 +56,9 @@ span.label-hk {
 			<form action="{{ path() }}" method="get" class="form">
 				{{ qset(PARAM.SORT, as_dict=True)|as_hidden }}
 				<div class="form-group">
-					<select name="{{ PARAM.SORT }}" class="form-control">
+					<select name="{{ PARAM.SORT }}" class="form-control">
 						<option value="">Latest first</option>
-						<option value="{{ SORT.CHEAP }}"{% if GET(PARAM.SORT) == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
+						<option value="{{ SORT.CHEAP }}"{% if GET(PARAM.SORT) == SORT.CHEAP %} selected="selected"{% endif %}>Cheap first</option>
 						<option value="{{ SORT.EXPENSIVE }}"{% if GET(PARAM.SORT) == SORT.EXPENSIVE %} selected="selected"{% endif %}>Expensive first</option>
 						<option value="{{ SORT.DISCOUNT_PC }}"{% if GET(PARAM.SORT) == SORT.DISCOUNT_PC %} selected="selected"{% endif %}>Best discount (%)</option>
 						<option value="{{ SORT.DISCOUNT_AMT }}"{% if GET(PARAM.SORT) == SORT.DISCOUNT_AMT %} selected="selected"{% endif %}>Best discount ($)</option>
@@ -70,7 +70,7 @@ span.label-hk {
 
 	<div class="row">
 		<div class="col-sm-4">
-			<h4><span class="label label-default">{{ total_count }} results</span></h4>
+			<h4><span class="label label-default">{{ total_count }} results</span></h4>
 		</div>
 		<div class="col-sm-8 text-right">
 			{% include 'search-paging.html' %}
@@ -81,25 +81,25 @@ span.label-hk {
 		{% for item in items %}
 		<div class="col-xs-6 col-sm-4 col-md-3 search-result{% if item.removed %} removed{% endif %}">
 			<div class="thumbnail">
-				<a href="{{ item.url }}" target="_blank">
-					<img src="{{ item.photo_url }}" alt="{{ item.title }}">
+				<a href="{{ item.url }}" target="_blank">
+					<img src="{{ item.photo_url }}" alt="{{ item.title }}">
 				</a>
 				<div class="caption">
 					<p>
-						<span class="label label-{{ item.store.id }}">{{ item.store.title }}</span>
-						<small class="sku">{{ item.sku }}</small>
+						<span class="label label-{{ item.store.id }}">{{ item.store.title }}</span>
+						<small class="sku">{{ item.sku }}</small>
 					</p>
 					<h4>
-						<a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+						<a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
 					</h4>
-					<h4>{{ item.price }}</h4>
+					<h4>{{ item.price }}</h4>
 					<p>
 						{% for id, title in item.category_path %}
 						{% if not loop.first %}<br />&raquo;{% endif %}
-						<a href="{{ qset(PARAM.CATEGORY, id) }}">{{ title }}</a>
+						<a href="{{ qset(PARAM.CATEGORY, id) }}">{{ title }}</a>
 						{% endfor %}
 					</p>
-					<p>{{ item.added }}</p>
+					<p>{{ item.added }}</p>
 				</div>
 			</div>
 		</div>

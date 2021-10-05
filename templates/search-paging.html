@@ -10,7 +10,7 @@
 		{% for n, q, a in paging.range %}
 		{% if a %}
 		<li class="active">
-			<a href="{{ q }}">{{ n }} <span class="sr-only">(current)</span></a>
+			<a href="{{ q }}">{{ n }} <span class="sr-only">(current)</span></a>
 		</li>
 		{% else %}
 		<li><a href="{{ q }}">{{ n }}</a></li>
@@ -18,7 +18,7 @@
 		{% endfor %}
 		{% if paging.next %}
 		<li>
-			<a href="{{ paging.next.1 }}" aria-label="Next">
+			<a href="{{ paging.next.1 }}" aria-label="Next">
 				<span aria-hidden="true">&raquo;</span>
 			</a>
 		</li>

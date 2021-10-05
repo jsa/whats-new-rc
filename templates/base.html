@@ -4,6 +4,7 @@
 		<meta charset="utf-8">
 		<meta http-equiv="X-UA-Compatible" content="IE=edge">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="robots" content="noindex">
 		<title>{% block title %}What's new RC{% endblock %}</title>
 		{% block css %}
 		<link href="/a/css/bootstrap.min.css" rel="stylesheet">
@@ -36,7 +37,7 @@
 							<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Categories <span class="caret"></span></a>
 							<ul class="dropdown-menu">
 								{% for id, info in stores() %}
-								<li><a href="/{{ id }}/categories">{{ info.title }}</a></li>
+								<li><a href="/{{ id }}/categories">{{ info.title }}</a></li>
 								{% endfor %}
 							</ul>
 						</li>
@@ -47,7 +48,7 @@
 					      method="get">
 						{{ qset(PARAM.SEARCH, as_dict=True)|as_hidden }}
 						<div class="input-group">
-							<input type="text" class="form-control" name="{{ PARAM.SEARCH }}" value="{{ GET(PARAM.SEARCH) }}">
+							<input type="text" class="form-control" name="{{ PARAM.SEARCH }}" value="{{ GET(PARAM.SEARCH) }}">
 							<span class="input-group-btn">
 								<button class="btn btn-default" type="submit">Search</button>
 							</span>

@@ -9,7 +9,7 @@
 {% block body %}
 <div class="jumbotron">
 	<div class="container">
-		<h1>{{ store.title }} product categories</h1>
+		<h1>{{ store.title }} product categories</h1>
 	</div>
 </div>
 
@@ -21,20 +21,20 @@
 				<div class="panel-heading" role="tab" id="cat-{{ cat.id }}">
 					<h4 class="panel-title">
 						<a class="collapsed" role="button" data-toggle="collapse" data-parent="#categories" href="#sub-{{ cat.id }}" aria-controls="sub-{{ cat.id }}" aria-expanded="false">
-						{{ cat.title }}{% if cat.item_count %} ({{ cat.item_count }}){% endif %}
+						{{ cat.title }}{% if cat.item_count %} ({{ cat.item_count }}){% endif %}
 						</a>
 					</h4>
 				</div>
 				<div id="sub-{{ cat.id }}" class="panel-collapse collapse" role="tabpanel" aria-labelledby="cat-{{ cat.id }}">
 					<div class="panel-body">
 						<p>
-							<a href="/?{{ PARAM.CATEGORY }}={{ cat.id }}">All {{ cat.title }}</a>
+							<a href="/?{{ PARAM.CATEGORY }}={{ cat.id }}">All {{ cat.title }}</a>
 							{% if cat.item_count %} ({{ cat.item_count }}){% endif %}
 						</p>
 						<ul class="submenu">
 							{% for cat in cat.children recursive %}
 							<li>
-								<a href="/?{{ PARAM.CATEGORY }}={{ cat.id }}">{{ cat.title }}</a>
+								<a href="/?{{ PARAM.CATEGORY }}={{ cat.id }}">{{ cat.title }}</a>
 								{% if cat.item_count %}({{ cat.item_count }}){% endif %}
 							</li>
 							{% if cat.children %}
